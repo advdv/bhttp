@@ -63,7 +63,7 @@ func (Dev) Test() error {
 }
 
 // error when wrong version format is used.
-var errVersionFormat = fmt.Errorf("version must be in format vX,Y,Z")
+var errVersionFormat = errors.New("version must be in format vX,Y,Z")
 
 // Release tags a new version and pushes it.
 func (Dev) Release(version string) error {
