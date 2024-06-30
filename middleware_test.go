@@ -36,6 +36,12 @@ var _ = Describe("middleware", func() {
 		Expect(fmt.Sprint(hdlr1)).To(Equal(fmt.Sprint(hdlr2))) // compare addrs
 	})
 
+	It("should just return the std handler without middleware", func() {
+		hdlr1 := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+		hdlr2 := bhttp.ChainStd(hdlr1)
+		Expect(fmt.Sprint(hdlr1)).To(Equal(fmt.Sprint(hdlr2))) // compare addrs
+	})
+
 	It("should wrap in the correct order, and allow context to be modif", func() {
 		var res string
 		hdlr1 := bhttp.HandlerFunc[TestValues](func(c *bhttp.Context[TestValues], _ bhttp.ResponseWriter, r *http.Request) error {

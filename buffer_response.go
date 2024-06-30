@@ -88,7 +88,7 @@ func (w *ResponseBuffer) Header() http.Header {
 // if flush has been called explicitly so in that case it will panic.
 func (w *ResponseBuffer) Reset() {
 	if w.bodyFlushed {
-		panic("clserve: response buffer is already flushed")
+		panic("bhttp: response buffer is already flushed")
 	}
 
 	for k := range w.resp.Header() {

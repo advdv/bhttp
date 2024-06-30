@@ -36,7 +36,7 @@ func (r Reverser) Reverse(name string, vals ...string) (string, error) {
 func (r Reverser) Named(name, s string) string {
 	s, err := r.NamedPattern(name, s)
 	if err != nil {
-		panic("clserve: " + err.Error())
+		panic("bhttp: " + err.Error())
 	}
 
 	return s

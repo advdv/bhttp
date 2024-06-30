@@ -11,9 +11,9 @@ type Logger interface {
 type defaultLogger struct{ *log.Logger }
 
 func (l defaultLogger) LogUnhandledServeError(err error) {
-	l.Logger.Printf("clserve: error not handled by middleware: %s", err)
+	l.Logger.Printf("bhttp: error not handled by middleware: %s", err)
 }
 
 func (l defaultLogger) LogImplicitFlushError(err error) {
-	l.Logger.Printf("clserve: error while flysing implicitly: %s", err)
+	l.Logger.Printf("bhttp: error while flysing implicitly: %s", err)
 }

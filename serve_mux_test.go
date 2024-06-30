@@ -69,4 +69,16 @@ var _ = Describe("serve mux", func() {
 		Expect(rec.Result().StatusCode).To(Equal(http.StatusOK))
 		Expect(rec.Body.String()).To(Equal(`comment 5: hello std, 192.0.2.1:1234 (bar)`))
 	})
+
+	It("should not allow calling use after handle", func() {
+		Expect(func() {
+			mux.BUse(example.Middleware[TestValues](slog.Default()))
+		}).To(PanicWith(MatchRegexp(`cannot call Use.*after calling Handle`)))
+	})
+
+	It("should not allow calling use after handle", func() {
+		Expect(func() {
+			mux.Use(testStdMiddleware)
+		}).To(PanicWith(MatchRegexp(`cannot call Use.*after calling Handle`)))
+	})
 })

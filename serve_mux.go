@@ -7,6 +7,7 @@ import "net/http"
 type ServeMux[V any] struct {
 	reverser    *Reverser
 	middlewares struct {
+		captured bool
 		standard []StdMiddleware
 		buffered []Middleware[V]
 	}
@@ -30,11 +31,13 @@ func (m *ServeMux[V]) Reverse(name string, vals ...string) (string, error) {
 
 // Use will add a standard http middleware triggered for both buffered and unbuffered request handling.
 func (m *ServeMux[V]) Use(mw ...StdMiddleware) {
+	m.ensureNoUseAfterHandle()
 	m.middlewares.standard = append(m.middlewares.standard, mw...)
 }
 
 // BUse will add a middleware ONLY for any buffered http handling, that is handlers setup using BHandle or BHandleFunc.
 func (m *ServeMux[V]) BUse(mw ...Middleware[V]) {
+	m.ensureNoUseAfterHandle()
 	m.middlewares.buffered = append(m.middlewares.buffered, mw...)
 }
 
@@ -55,6 +58,8 @@ func (m *ServeMux[V]) HandleFunc(pattern string, handler http.HandlerFunc, name 
 
 // Handle will invoke 'handler' with an unbuffered response for the named route and pattern.
 func (m *ServeMux[V]) Handle(pattern string, handler http.Handler, name ...string) {
+	m.middlewares.captured = true
+
 	if len(name) > 0 {
 		pattern = m.reverser.Named(name[0], pattern)
 	}
@@ -65,4 +70,10 @@ func (m *ServeMux[V]) Handle(pattern string, handler http.Handler, name ...strin
 // ServeHTTP maxes the mux implement http.Handler.
 func (m ServeMux[V]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.mux.ServeHTTP(w, r)
+}
+
+func (m ServeMux[V]) ensureNoUseAfterHandle() {
+	if m.middlewares.captured {
+		panic("bhttp: cannot call Use() or BUse() after calling Handle")
+	}
 }
