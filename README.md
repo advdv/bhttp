@@ -1,5 +1,5 @@
 # bhttp
-Typed context, url reversing and error returns for Go http handlers 
+Pragmatic utilities for better http handlers in Go. Typed context, url reversing and error returns for Go http handlers 
 
 ## features
 - type-safe and modular context.Context for http handlers
