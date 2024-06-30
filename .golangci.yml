@@ -1,0 +1,85 @@
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (github.com/jackc/pgx/v5.Tx).Rollback
+  staticcheck:
+    checks: ["all"]
+  stylecheck:
+    checks: ["all"]
+  funlen:
+    lines: 200
+  cyclop:
+    max-complexity: 20
+  varnamelen:
+    max-distance: 15
+    ignore-names:
+      - id # generael identifier
+      - err # error values
+      - db # database connections
+      - tx # database transactions
+      - w # io.Writers
+      - r # io.Readers or http.Request
+      - ok # common bool
+      - rw # read-write database 
+      - ro # read-only database 
+linters:
+  enable-all: true
+  disable:
+    - dupl # false positive galore
+    - exhaustivestruct # deprecated
+    - exhaustruct # CDK has large structs we use partially
+    - golint # deprecated
+    - varcheck # deprecated
+    - structcheck # deprecated
+    - interfacer # deprecated
+    - nosnakecase # deprecated
+    - scopelint # deprecated
+    - ifshort # deprecated
+    - maligned # deprecated
+    - deadcode # deprecated
+    - gochecknoinits # frameworks and magefile use init responsibly
+    - gci # no way to automate this in the vscode so default ordering is good enough
+    - ireturn # our oapi implementations return interfaces all the time
+    - depguard # too agressive
+    - tagliatelle # we have lots of aws tags that don't follow the standards
+    - nonamedreturns # makes some functions very unreadable
+    - wsl # too strict
+    - gochecknoglobals # too strict
+    - gomoddirectives # can't get this to shutup
+    - goconst # text identifiers makes it more readable
+    - funlen # trust our own judgement
+
+issues:
+  include:
+    - EXC0015 # warn for lack of package comment
+    - EXC0013 # warn for lack of package comment
+    - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
+    - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - forcetypeassert
+        - gochecknoglobals
+        - lll
+        - goerr113
+        - revive
+        - perfsprint
+        - wrapcheck
+        - nlreturn
+        - varnamelen
+    - path: infra
+      linters:
+        - gomnd
+        - interfacebloat
+        - goconst
+    - path: magefiles
+      linters:
+        - gomnd
+        - goerr113
+        - goconst
+        - wrapcheck
