@@ -72,6 +72,8 @@ issues:
         - wrapcheck
         - nlreturn
         - varnamelen
+        - canonicalheader
+        - err113
     - path: infra
       linters:
         - gomnd

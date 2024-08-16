@@ -19,6 +19,14 @@ func TestBHTTP(t *testing.T) {
 	RunSpecs(t, "bhttp")
 }
 
+type Ctx1 struct {
+	context.Context //nolint:containedctx
+}
+
+func initCtx1(r *http.Request) Ctx1 {
+	return Ctx1{r.Context()}
+}
+
 func BenchmarkHandler(b *testing.B) {
 	data64Kib := make([]byte, 1024*64)
 	someJSON := []byte(`[{"_id":"63dce6aef7179ac20c5836ca","index":0,"guid":"e1d5dcf8-074c-4716-92a1-da2eda781a43","tags":["aliquip","do","reprehenderit","sunt","amet","tempor","sit"],"friends":[{"id":0,"name":"Boyd Barnett"},{"id":1,"name":"Malone David"},{"id":2,"name":"Taylor Drake"}],"greeting":"Hello, undefined! You have 2 unread messages.","favoriteFruit":"apple"},{"_id":"63dce6ae6a88ed86f274529a","index":1,"guid":"46f5d4c7-502d-4cf2-a5e5-48966daf8d55","tags":["laborum","duis","incididunt","cupidatat","excepteur","nulla","laboris"],"friends":[{"id":0,"name":"Black Stevens"},{"id":1,"name":"Norris Herman"},{"id":2,"name":"Jocelyn Foster"}],"greeting":"Hello, undefined! You have 5 unread messages.","favoriteFruit":"apple"},{"_id":"63dce6aeb18a37f4439816ce","index":2,"guid":"455a3bea-c30d-4221-ab72-2b5a8111db33","tags":["duis","ut","non","non","cillum","mollit","enim"],"friends":[{"id":0,"name":"Coffey Thomas"},{"id":1,"name":"Augusta Vega"},{"id":2,"name":"Pauline Harmon"}],"greeting":"Hello, undefined! You have 9 unread messages.","favoriteFruit":"banana"},{"_id":"63dce6aeaf886da05db5f15b","index":3,"guid":"27d0a49f-aa59-4350-b75d-e4422d53aa50","tags":["dolore","qui","cupidatat","irure","deserunt","consectetur","reprehenderit"],"friends":[{"id":0,"name":"Loraine Sykes"},{"id":1,"name":"Leslie Armstrong"},{"id":2,"name":"Mason Davis"}],"greeting":"Hello, undefined! You have 1 unread messages.","favoriteFruit":"apple"},{"_id":"63dce6aed3a2a05d306a8423","index":4,"guid":"29fb8778-3254-4429-bbc0-cb8ca2cc2585","tags":["magna","minim","cupidatat","qui","dolore","id","labore"],"friends":[{"id":0,"name":"Aida Fowler"},{"id":1,"name":"Vinson Cohen"},{"id":2,"name":"Fitzgerald Cantu"}],"greeting":"Hello, undefined! You have 2 unread messages.","favoriteFruit":"apple"},{"_id":"63dce6ae203986f9221ea262","index":5,"guid":"1fae152c-d977-4858-879c-4e9b9ad3a291","tags":["nisi","minim","veniam","ullamco","enim","qui","reprehenderit"],"friends":[{"id":0,"name":"Reese Deleon"},{"id":1,"name":"Charity Sargent"},{"id":2,"name":"Gracie Rivera"}],"greeting":"Hello, undefined! You have 9 unread messages.","favoriteFruit":"banana"}]`)
@@ -38,11 +46,11 @@ func BenchmarkHandler(b *testing.B) {
 		}}, // some json
 	} {
 		b.Run("buffered-"+tblc.name, func(b *testing.B) {
-			hdlr := bhttp.ServeFunc(func(ctx *bhttp.Context[struct{}], w bhttp.ResponseWriter, r *http.Request) error {
+			hdlr := bhttp.ServeFunc(func(ctx Ctx1, w bhttp.ResponseWriter, r *http.Request) error {
 				tblc.hf(w, r)
 
 				return nil
-			})
+			}, initCtx1)
 
 			b.ResetTimer()
 			b.ReportAllocs()
@@ -70,13 +78,13 @@ func BenchmarkHandler(b *testing.B) {
 var _ = Describe("handle implementations", func() {
 	It("should return usual response on success", func(ctx context.Context) {
 		resp, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
-		bhttp.ServeFunc[struct{}](func(ctx *bhttp.Context[struct{}], w bhttp.ResponseWriter, r *http.Request) error {
+		bhttp.ServeFunc(func(ctx Ctx1, w bhttp.ResponseWriter, r *http.Request) error {
 			w.Header().Set("X-Foo", "bar")
 			w.WriteHeader(http.StatusCreated)
 			fmt.Fprintf(w, "show this")
 
 			return nil
-		}).ServeHTTP(resp, req)
+		}, initCtx1).ServeHTTP(resp, req)
 
 		Expect(resp).To(HaveHTTPStatus(201))
 		Expect(resp).To(HaveHTTPBody("show this"))
@@ -86,12 +94,12 @@ var _ = Describe("handle implementations", func() {
 	It("error on writing to limit buffer", func(ctx context.Context) {
 		resp, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
 		var errIsFull bool
-		bhttp.ServeFunc(func(ctx *bhttp.Context[struct{}], w bhttp.ResponseWriter, r *http.Request) error {
+		bhttp.ServeFunc(func(ctx Ctx1, w bhttp.ResponseWriter, r *http.Request) error {
 			_, err := fmt.Fprintf(w, "xy")
 			errIsFull = errors.Is(err, bhttp.ErrBufferFull)
 
 			return nil
-		}, bhttp.WithBufferLimit(1)).ServeHTTP(resp, req)
+		}, initCtx1, bhttp.WithBufferLimit(1)).ServeHTTP(resp, req)
 
 		Expect(errIsFull).To(BeTrue())
 	})
@@ -100,9 +108,9 @@ var _ = Describe("handle implementations", func() {
 		resp, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
 		logs := &testLogger{}
 
-		bhttp.ServeFunc[struct{}](func(ctx *bhttp.Context[struct{}], w bhttp.ResponseWriter, r *http.Request) error {
+		bhttp.ServeFunc(func(ctx Ctx1, w bhttp.ResponseWriter, r *http.Request) error {
 			return errSome
-		}, bhttp.WithErrorLog(logs)).ServeHTTP(resp, req)
+		}, initCtx1, bhttp.WithErrorLog(logs)).ServeHTTP(resp, req)
 
 		Expect(logs.errs).To(HaveLen(1))
 		Expect(logs.errs[0]).To(MatchError(MatchRegexp(`some error`)))
@@ -113,11 +121,11 @@ var _ = Describe("handle implementations", func() {
 		fresp := failingResponseWriter{resp}
 		logs := &testLogger{}
 
-		bhttp.ServeFunc[struct{}](func(ctx *bhttp.Context[struct{}], w bhttp.ResponseWriter, r *http.Request) error {
+		bhttp.ServeFunc(func(ctx Ctx1, w bhttp.ResponseWriter, r *http.Request) error {
 			fmt.Fprintf(w, "some data")
 
 			return nil
-		}, bhttp.WithErrorLog(logs)).ServeHTTP(fresp, req)
+		}, initCtx1, bhttp.WithErrorLog(logs)).ServeHTTP(fresp, req)
 
 		Expect(logs.errs).To(HaveLen(1))
 		Expect(logs.errs[0]).To(MatchError(MatchRegexp(`write fail`)))

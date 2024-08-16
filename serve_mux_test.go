@@ -26,11 +26,11 @@ var _ = Describe("serve mux", func() {
 			})
 		}
 
-		mux = bhttp.NewServeMux[TestValues]()
+		mux = bhttp.NewServeMux[TestValues](initTestValues)
 		mux.Use(testStdMiddleware)
 		mux.BUse(example.Middleware[TestValues](slog.Default()))
-		mux.BHandleFunc("GET /blog/{slug}", func(ctx *bhttp.Context[TestValues], w bhttp.ResponseWriter, r *http.Request) error {
-			Expect(ctx.V.Logger).ToNot(BeNil())
+		mux.BHandleFunc("GET /blog/{slug}", func(ctx TestValues, w bhttp.ResponseWriter, r *http.Request) error {
+			Expect(ctx.Logger).ToNot(BeNil())
 
 			_, err := fmt.Fprintf(w, "%s: hello, %s (%v)", r.PathValue("slug"), r.RemoteAddr, r.Context().Value("ctxv1"))
 
