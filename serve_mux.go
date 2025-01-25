@@ -19,6 +19,18 @@ type ServeMux[C context.Context] struct {
 	initCtx ContextInitFunc[C]
 }
 
+// BasicContextFromRequest returns a context init function that simply get bare context.Context
+// from the request as-is.
+func BasicContextFromRequest() ContextInitFunc[context.Context] {
+	return func(r *http.Request) context.Context { return r.Context() }
+}
+
+// NewBasicServeMux returns a serve mux that just uses the basic context.Context that is
+// taken from the request as-is.
+func NewBasicServeMux(opts ...Option) *ServeMux[context.Context] {
+	return NewServeMux(BasicContextFromRequest(), opts...)
+}
+
 // NewServeMux inits a mux.
 func NewServeMux[C context.Context](initCtx ContextInitFunc[C], opts ...Option) *ServeMux[C] {
 	return &ServeMux[C]{

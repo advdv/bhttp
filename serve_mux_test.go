@@ -26,7 +26,7 @@ var _ = Describe("serve mux", func() {
 			})
 		}
 
-		mux = bhttp.NewServeMux[TestValues](initTestValues)
+		mux = bhttp.NewServeMux(initTestValues)
 		mux.Use(testStdMiddleware)
 		mux.BUse(example.Middleware[TestValues](slog.Default()))
 		mux.BHandleFunc("GET /blog/{slug}", func(ctx TestValues, w bhttp.ResponseWriter, r *http.Request) error {
@@ -80,5 +80,16 @@ var _ = Describe("serve mux", func() {
 		Expect(func() {
 			mux.Use(testStdMiddleware)
 		}).To(PanicWith(MatchRegexp(`cannot call Use.*after calling Handle`)))
+	})
+})
+
+var _ = Describe("basic serve mux", func() {
+	It("should init a basic serve mux", func() {
+		rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/bogus", nil)
+		mux := bhttp.NewBasicServeMux()
+		Expect(mux).ToNot(BeNil())
+
+		mux.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusNotFound))
 	})
 })
