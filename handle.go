@@ -14,34 +14,34 @@ type ResponseWriter interface {
 }
 
 // Handler mirrors http.Handler but it supports typed context values and a buffered response allow returning error.
-type Handler[C context.Context] interface {
-	ServeBHTTP(ctx C, w ResponseWriter, r *http.Request) error
+type Handler interface {
+	ServeBHTTP(ctx context.Context, w ResponseWriter, r *http.Request) error
 }
 
 // HandlerFunc allow casting a function to imple [Handler].
-type HandlerFunc[C context.Context] func(C, ResponseWriter, *http.Request) error
+type HandlerFunc func(context.Context, ResponseWriter, *http.Request) error
 
 // ServeBHTTP implements the [Handler] interface.
-func (f HandlerFunc[C]) ServeBHTTP(ctx C, w ResponseWriter, r *http.Request) error {
+func (f HandlerFunc) ServeBHTTP(ctx context.Context, w ResponseWriter, r *http.Request) error {
 	return f(ctx, w, r)
 }
 
 // ServeFunc takes a handler func and then calls [Serve].
-func ServeFunc[C context.Context](
-	hdlr HandlerFunc[C], initCtx ContextInitFunc[C], os ...Option,
+func ServeFunc(
+	hdlr HandlerFunc, initCtx ContextInitFunc, os ...Option,
 ) http.Handler {
 	return Serve(hdlr, initCtx, os...)
 }
 
 // ContextInitFunc describes the signature for a function to initialize the typed context.
-type ContextInitFunc[C context.Context] func(r *http.Request) C
+type ContextInitFunc func(r *http.Request) context.Context
 
 // Serve takes a handler with a customizable context that is able to return an error. To support
 // this the response is buffered until the handler is done. If an error occurs the buffer is discarded and
 // a full replacement response can be formulated. The underlying buffer is re-used between requests for
 // improved performance.
-func Serve[C context.Context](
-	hdlr Handler[C], initCtx ContextInitFunc[C], os ...Option,
+func Serve(
+	hdlr Handler, initCtx ContextInitFunc, os ...Option,
 ) http.Handler {
 	opts := applyOptions(os)
 

@@ -14,7 +14,7 @@ import (
 )
 
 var _ = Describe("serve mux", func() {
-	var mux *bhttp.ServeMux[TestValues]
+	var mux *bhttp.ServeMux
 	var testStdMiddleware bhttp.StdMiddleware
 
 	BeforeEach(func() {
@@ -26,11 +26,11 @@ var _ = Describe("serve mux", func() {
 			})
 		}
 
-		mux = bhttp.NewServeMux(initTestValues)
+		mux = bhttp.NewServeMux(bhttp.BasicContextFromRequest())
 		mux.Use(testStdMiddleware)
-		mux.BUse(example.Middleware[TestValues](slog.Default()))
-		mux.BHandleFunc("GET /blog/{slug}", func(ctx TestValues, w bhttp.ResponseWriter, r *http.Request) error {
-			Expect(ctx.Logger).ToNot(BeNil())
+		mux.BUse(example.Middleware(slog.Default()))
+		mux.BHandleFunc("GET /blog/{slug}", func(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+			Expect(example.Log(ctx)).ToNot(BeNil())
 
 			_, err := fmt.Fprintf(w, "%s: hello, %s (%v)", r.PathValue("slug"), r.RemoteAddr, r.Context().Value("ctxv1"))
 
@@ -72,7 +72,7 @@ var _ = Describe("serve mux", func() {
 
 	It("should not allow calling use after handle", func() {
 		Expect(func() {
-			mux.BUse(example.Middleware[TestValues](slog.Default()))
+			mux.BUse(example.Middleware(slog.Default()))
 		}).To(PanicWith(MatchRegexp(`cannot call Use.*after calling Handle`)))
 	})
 
