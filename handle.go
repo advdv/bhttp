@@ -1,64 +1,85 @@
-// Package bhttp provides utilities for creating http handlers with buffered responses.
 package bhttp
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 )
+
+// Context constraint for "leaf" nodes.
+type Context interface{ context.Context }
 
 // ResponseWriter implements the http.ResponseWriter but the underlying bytes are buffered. This allows
 // middleware to reset the writer and formulate a completely new response.
 type ResponseWriter interface {
 	http.ResponseWriter
 	Reset()
+	Free()
+	FlushBuffer() error
 }
 
 // Handler mirrors http.Handler but it supports typed context values and a buffered response allow returning error.
-type Handler interface {
-	ServeBHTTP(ctx context.Context, w ResponseWriter, r *http.Request) error
+type Handler[C Context] interface {
+	ServeBHTTP(ctx C, w ResponseWriter, r *http.Request) error
 }
 
 // HandlerFunc allow casting a function to imple [Handler].
-type HandlerFunc func(context.Context, ResponseWriter, *http.Request) error
+type HandlerFunc[C Context] func(C, ResponseWriter, *http.Request) error
 
 // ServeBHTTP implements the [Handler] interface.
-func (f HandlerFunc) ServeBHTTP(ctx context.Context, w ResponseWriter, r *http.Request) error {
+func (f HandlerFunc[C]) ServeBHTTP(ctx C, w ResponseWriter, r *http.Request) error {
 	return f(ctx, w, r)
 }
 
-// ServeFunc takes a handler func and then calls [Serve].
-func ServeFunc(
-	hdlr HandlerFunc, initCtx ContextInitFunc, os ...Option,
-) http.Handler {
-	return Serve(hdlr, initCtx, os...)
+// BareHandler describes how middleware servers HTTP requests. In this library the signature for
+// handling middleware [BareHandler] is different from the signature of "leaf" handlers: [Handler].
+type BareHandler interface {
+	ServeBareBHTTP(w ResponseWriter, r *http.Request) error
 }
 
-// ContextInitFunc describes the signature for a function to initialize the typed context.
-type ContextInitFunc func(r *http.Request) context.Context
+// BareHandlerFunc allow casting a function to an implementation of [Handler].
+type BareHandlerFunc func(ResponseWriter, *http.Request) error
 
-// Serve takes a handler with a customizable context that is able to return an error. To support
-// this the response is buffered until the handler is done. If an error occurs the buffer is discarded and
-// a full replacement response can be formulated. The underlying buffer is re-used between requests for
-// improved performance.
-func Serve(
-	hdlr Handler, initCtx ContextInitFunc, os ...Option,
-) http.Handler {
-	opts := applyOptions(os)
+// ServeBareBHTTP implements the [Handler] interface.
+func (f BareHandlerFunc) ServeBareBHTTP(w ResponseWriter, r *http.Request) error {
+	return f(w, r)
+}
 
-	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		bresp := NewBufferResponse(resp, opts.bufLimit)
-		defer bresp.Free()
+// ContextInitFunc describe functions that turn requests into a typed context for our "leaf" handlers.
+type ContextInitFunc[C Context] func(*http.Request) (C, error)
 
-		if err := hdlr.ServeBHTTP(initCtx(req), bresp, req); err != nil {
-			opts.logger.LogUnhandledServeError(err)
-
-			return
+// ToBare converts a typed context handler 'h' into a bare buffered handler.
+func ToBare[C Context](h Handler[C], contextInit ContextInitFunc[C]) BareHandler {
+	return BareHandlerFunc(func(w ResponseWriter, r *http.Request) error {
+		ctx, err := contextInit(r)
+		if err != nil {
+			return fmt.Errorf("init typed context from standard request context: %w", err)
 		}
 
-		if err := bresp.ImplicitFlush(); err != nil {
-			opts.logger.LogImplicitFlushError(err)
+		return h.ServeBHTTP(ctx, w, r)
+	})
+}
 
-			return
+// ToStd converts a bare handler into a standard library http.Handler. The implementation
+// creates a buffered response writer and flushes it implicitly after serving the request.
+func ToStd(h BareHandler, bufLimit int, logs Logger) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		bresp := NewResponseWriter(resp, bufLimit)
+		defer bresp.Free()
+
+		if err := h.ServeBareBHTTP(bresp, req); err != nil {
+			logs.LogUnhandledServeError(err)
+			bresp.Reset() // reset the buffer
+
+			// if all fails we don't want the client to end up with a white screen so
+			// we render a 500 error with the standard text.
+			http.Error(resp,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+		}
+
+		if err := bresp.FlushBuffer(); err != nil {
+			logs.LogImplicitFlushError(err)
 		}
 	})
 }

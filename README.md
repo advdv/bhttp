@@ -1,13 +1,8 @@
-# bhttp
-Pragmatic utilities for better http handlers in Go. Typed context, url reversing and error returns for Go http handlers 
+# bhttpv2
+Predecessor of bhttp, ideas features
 
-## features
-- type-safe and modular context.Context for http handlers
-- reversing of http route patterns
-- return errors from handlers, and allow middleware to handle them
-- benchmark seem to suggest it also reduces alloc/op but i might be doing something wrong with the benchmarks
-
-## Downsides
-- the http.Request's context should not be used in the handler
-- about 2 extra allocations per request
-- quiet a lot of type parameters will pop-up, this decreases readability
+- The middleware will have different signature as "leaf" http handlers
+- "leaf" http handlers take a custom (typed) context, a bhttp.ResponseWriter, a http.request and return an error
+- the custom "leaf" handler context is constructed from the regular context.Context just before the leaf handler is called, share this logic and error handling
+- middleware only take the bhttp.ResponseWriter, a http.request (that carries the regular context.Context) and can handle the error
+- named routes and route reversing

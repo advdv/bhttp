@@ -1,41 +1,52 @@
 package bhttp_test
 
 import (
+	"testing"
+
 	"github.com/advdv/bhttp"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var _ = Describe("reverser", func() {
-	var rev *bhttp.Reverser
-	BeforeEach(func() {
-		rev = bhttp.NewReverser()
-		Expect(rev.Named("homepage", "/{$}")).To(Equal(`/{$}`))
-		Expect(rev.Named("blog_post", "/blog/{id}/{$}")).To(Equal(`/blog/{id}/{$}`))
+func TestReverser(t *testing.T) {
+	rev := bhttp.NewReverser()
+
+	t.Run("should allow naming patterns", func(t *testing.T) {
+		s := rev.Named("homepage", "/{$}")
+		assert.Equal(t, "/{$}", s)
+
+		s, err := rev.NamedPattern("blog_post", "/blog/{id}/{$}")
+		require.NoError(t, err)
+		assert.Equal(t, "/blog/{id}/{$}", s)
 	})
 
-	It("should reverse", func() {
-		Expect(rev.Reverse("homepage")).To(Equal(`/`))
+	t.Run("should reverse named patterns", func(t *testing.T) {
+		res, err := rev.Reverse("homepage")
+		require.NoError(t, err)
+		assert.Equal(t, "/", res)
 	})
 
-	It("should error if already exists", func() {
+	t.Run("should error if pattern already exists", func(t *testing.T) {
 		_, err := rev.NamedPattern("homepage", "/")
-		Expect(err).To(MatchError(MatchRegexp(`already exists`)))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already exists")
 	})
 
-	It("should panic for Named error", func() {
-		Expect(func() {
+	t.Run("should panic for Named error", func(t *testing.T) {
+		assert.PanicsWithValue(t, "bhttp: failed to parse pattern: empty pattern", func() {
 			rev.Named("bogus", "")
-		}).To(PanicWith(MatchRegexp(`failed to parse`)))
+		})
 	})
 
-	It("should error if reversing unknown name", func() {
+	t.Run("should error if reversing unknown name", func(t *testing.T) {
 		_, err := rev.Reverse("bogus")
-		Expect(err).To(MatchError(MatchRegexp(`no pattern named: "bogus"`)))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no pattern named: \"bogus\"")
 	})
 
-	It("should error if url building fails", func() {
+	t.Run("should error if url building fails", func(t *testing.T) {
 		_, err := rev.Reverse("blog_post")
-		Expect(err).To(MatchError(MatchRegexp(`not enough values`)))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not enough values")
 	})
-})
+}

@@ -33,27 +33,27 @@ func (r Reverser) Reverse(name string, vals ...string) (string, error) {
 }
 
 // Named is a convenience method that panics if naming the pattern fails.
-func (r Reverser) Named(name, s string) string {
-	s, err := r.NamedPattern(name, s)
+func (r Reverser) Named(name, str string) string {
+	str, err := r.NamedPattern(name, str)
 	if err != nil {
 		panic("bhttp: " + err.Error())
 	}
 
-	return s
+	return str
 }
 
 // NamedPattern will parse 's' as a path pattern while returning it as well.
-func (r Reverser) NamedPattern(name, s string) (string, error) {
+func (r Reverser) NamedPattern(name, str string) (string, error) {
 	if _, exists := r.pats[name]; exists {
-		return s, fmt.Errorf("pattern with name %q already exists", name) //nolint:goerr113
+		return str, fmt.Errorf("pattern with name %q already exists", name) //nolint:goerr113
 	}
 
-	pat, err := httppattern.ParsePattern(s)
+	pat, err := httppattern.ParsePattern(str)
 	if err != nil {
-		return s, fmt.Errorf("failed to parse pattern: %w", err)
+		return str, fmt.Errorf("failed to parse pattern: %w", err)
 	}
 
 	r.pats[name] = pat
 
-	return s, nil
+	return str, nil
 }

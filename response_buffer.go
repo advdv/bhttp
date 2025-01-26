@@ -1,3 +1,4 @@
+// Package bhttp provides buffered HTTP response handling.
 package bhttp
 
 import (
@@ -30,10 +31,14 @@ var responseBufferPool = sync.Pool{ //nolint:gochecknoglobals
 	New: func() interface{} { return new(ResponseBuffer) },
 }
 
-// NewBufferResponse inits a buffered response writer. It has a configurable limit after
+// NewResponseWriter inits a buffered response writer. It has a configurable limit after
 // which the writing will return an error. This is to protect unchecked handlers from claiming
 // too much memory. Limit can be set to -1 to disable this check.
-func NewBufferResponse(resp http.ResponseWriter, limit int) *ResponseBuffer {
+func NewResponseWriter(resp http.ResponseWriter, limit int) ResponseWriter {
+	return newBufferResponse(resp, limit)
+}
+
+func newBufferResponse(resp http.ResponseWriter, limit int) *ResponseBuffer {
 	w, _ := responseBufferPool.Get().(*ResponseBuffer)
 	w.resp = resp
 	w.limit = limit
@@ -123,9 +128,9 @@ func (w *ResponseBuffer) Write(buf []byte) (int, error) {
 	return n, nil
 }
 
-// ImplicitFlush flushes data to the underlying writer without calling .Flush on it by proxy. This is provided
+// FlushBuffer flushes data to the underlying writer without calling .Flush on it by proxy. This is provided
 // separately from FlushError to allow for emulating the original ResponseWriter behaviour more correctly.
-func (w *ResponseBuffer) ImplicitFlush() error {
+func (w *ResponseBuffer) FlushBuffer() error {
 	w.markHeaderAsFlushed()
 	w.resp.WriteHeader(w.status)
 
@@ -142,12 +147,12 @@ func (w *ResponseBuffer) ImplicitFlush() error {
 // FlushError any buffered bytes to the underlying response writer and resets the buffer. After flush has been
 // called the response data should be considered sent and in-transport to the client.
 func (w *ResponseBuffer) FlushError() error {
-	if err := w.ImplicitFlush(); err != nil {
+	if err := w.FlushBuffer(); err != nil {
 		return err
 	}
 
 	// calling flush on the underlying writer to make it explicit
-	if err := http.NewResponseController(w.resp).Flush(); err != nil { //nolint:bodyclose
+	if err := http.NewResponseController(w.resp).Flush(); err != nil {
 		return fmt.Errorf("failed to flush underlying: %w", err)
 	}
 
