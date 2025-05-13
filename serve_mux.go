@@ -41,7 +41,7 @@ func NewCustomServeMux[C Context](
 // [NewCustomServeMux] for that.
 func NewServeMux() *ServeMux[context.Context] {
 	return NewCustomServeMux(
-		func(r *http.Request) (context.Context, error) { return r.Context(), nil },
+		StdContextInit,
 		-1,
 		NewStdLogger(log.Default()),
 		http.NewServeMux(),

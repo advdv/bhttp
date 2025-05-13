@@ -1,11 +1,15 @@
 package bhttp_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/advdv/bhttp"
@@ -61,4 +65,31 @@ func TestHandleDefaultError(t *testing.T) {
 	require.Equal(t, ``, rec.Header().Get("Is-Bar"))
 	require.Equal(t, `Internal Server Error`+"\n", rec.Body.String())
 	require.Equal(t, int64(1), logs.NumLogUnhandledServeError)
+}
+
+func TestSuperfluousWriteOnError(t *testing.T) {
+	hdlr := bhttp.HandlerFunc[context.Context](func(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+		return errors.New("foo")
+	})
+
+	var logsb bytes.Buffer
+	logs := log.New(&logsb, "", 0)
+	srv := http.Server{ErrorLog: logs, Handler: bhttp.ToStd(bhttp.ToBare(hdlr,
+		bhttp.StdContextInit), -1, bhttp.NewStdLogger(logs))}
+
+	ln, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		srv.Serve(ln)
+	}()
+
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, fmt.Sprintf("http://%s", ln.Addr()), nil)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.NotContains(t, logsb.String(), "superfluous response.WriteHeader")
 }

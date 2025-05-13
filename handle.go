@@ -60,6 +60,9 @@ func ToBare[C Context](h Handler[C], contextInit ContextInitFunc[C]) BareHandler
 	})
 }
 
+// StdContextInit is a context initializer that just pulls the context from the http.Request.
+func StdContextInit(r *http.Request) (context.Context, error) { return r.Context(), nil }
+
 // ToStd converts a bare handler into a standard library http.Handler. The implementation
 // creates a buffered response writer and flushes it implicitly after serving the request.
 func ToStd(h BareHandler, bufLimit int, logs Logger) http.Handler {
@@ -73,7 +76,7 @@ func ToStd(h BareHandler, bufLimit int, logs Logger) http.Handler {
 
 			// if all fails we don't want the client to end up with a white screen so
 			// we render a 500 error with the standard text.
-			http.Error(resp,
+			http.Error(bresp,
 				http.StatusText(http.StatusInternalServerError),
 				http.StatusInternalServerError)
 		}

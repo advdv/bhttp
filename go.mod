@@ -1,6 +1,6 @@
 module github.com/advdv/bhttp
 
-go 1.23.5
+go 1.24.2
 
 require (
 	github.com/advdv/stdgo v0.0.49
