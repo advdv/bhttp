@@ -31,6 +31,10 @@ func handleCtx1(ctx testCtx1, w bhttp.ResponseWriter, r *http.Request) error {
 		return errors.New("triggered error")
 	}
 
+	if r.URL.Path == "/trigger-b-error" {
+		return bhttp.NewError(bhttp.CodeBadRequest, errors.New("foo"))
+	}
+
 	return nil
 }
 
@@ -65,6 +69,21 @@ func TestHandleDefaultError(t *testing.T) {
 	require.Equal(t, ``, rec.Header().Get("Is-Bar"))
 	require.Equal(t, `Internal Server Error`+"\n", rec.Body.String())
 	require.Equal(t, int64(1), logs.NumLogUnhandledServeError)
+}
+
+func TestHandleDefaultBError(t *testing.T) {
+	logs := bhttp.NewTestLogger(t)
+	hdlr := bhttp.HandlerFunc[testCtx1](handleCtx1)
+	bhdlr := bhttp.ToBare(hdlr, newCtx1)
+	shdrl := bhttp.ToStd(bhdlr, -1, logs)
+
+	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/trigger-b-error", nil)
+	shdrl.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, ``, rec.Header().Get("Is-Bar"))
+	require.Equal(t, `Bad Request: foo`+"\n", rec.Body.String())
+	require.Equal(t, int64(0), logs.NumLogUnhandledServeError)
 }
 
 func TestSuperfluousWriteOnError(t *testing.T) {

@@ -2,6 +2,7 @@ package bhttp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -71,14 +72,21 @@ func ToStd(h BareHandler, bufLimit int, logs Logger) http.Handler {
 		defer bresp.Free()
 
 		if err := h.ServeBareBHTTP(bresp, req); err != nil {
-			logs.LogUnhandledServeError(err)
 			bresp.Reset() // reset the buffer
 
-			// if all fails we don't want the client to end up with a white screen so
-			// we render a 500 error with the standard text.
-			http.Error(bresp,
-				http.StatusText(http.StatusInternalServerError),
-				http.StatusInternalServerError)
+			// if the code throws a bhttp.Error we use that code.
+			var berr *Error
+			if errors.As(err, &berr) {
+				http.Error(bresp, berr.Error(), int(berr.code))
+			} else {
+				logs.LogUnhandledServeError(err)
+
+				// Else, we assume a server error don't want the client to end up with a white screen so
+				// we render a 500 error with the standard text.
+				http.Error(bresp,
+					http.StatusText(http.StatusInternalServerError),
+					http.StatusInternalServerError)
+			}
 		}
 
 		if err := bresp.FlushBuffer(); err != nil {
