@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# mise description="Tags a new version and pushes it"
+set -euo pipefail
+
+version=$(cat version.txt)
+
+if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "invalid version format: $version" >&2
+    exit 1
+fi
+
+git tag "$version"
+git push origin "$version"
+
+echo "Released $version"
