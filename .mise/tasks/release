@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mise description="Tags a new version and pushes it"
+#MISE description="Tags a new version and pushes it"
 set -euo pipefail
 
 version=$(cat version.txt)
