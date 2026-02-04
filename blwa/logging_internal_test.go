@@ -21,8 +21,8 @@ func (e testEnv) otelExporter() string {
 	}
 	return e.otelExp
 }
-func (e testEnv) awsRegion() string            { return "us-east-1" }
-func (e testEnv) primaryRegion() string        { return "us-east-1" }
+func (e testEnv) awsRegion() string             { return "us-east-1" }
+func (e testEnv) primaryRegion() string         { return "us-east-1" }
 func (e testEnv) gatewayAccessLogGroup() string { return "" }
 
 func TestNewLogger(t *testing.T) {

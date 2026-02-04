@@ -90,6 +90,8 @@ func (h *ItemHandlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *
 
 // Example demonstrates a complete blwa application with local region AWS clients.
 // AWS clients are injected directly into handler constructors via fx.
+//
+//nolint:testableexamples // Run() blocks indefinitely, no testable output.
 func Example() {
 	blwa.NewApp[Env](
 		func(m *blwa.Mux, h *ItemHandlers) {
@@ -132,6 +134,8 @@ func (h *ConfigHandlers) GetConfig(ctx *blwa.Context, w bhttp.ResponseWriter, r 
 // Example_primaryRegion demonstrates primary region AWS client injection.
 // Use Primary[T] wrapper when you need to access resources in the primary
 // deployment region (e.g., shared config in SSM Parameter Store).
+//
+//nolint:testableexamples // Run() blocks indefinitely, no testable output.
 func Example_primaryRegion() {
 	blwa.NewApp[Env](
 		func(m *blwa.Mux, h *ConfigHandlers) {
@@ -174,6 +178,8 @@ func (h *UploadHandlers) Upload(ctx *blwa.Context, w bhttp.ResponseWriter, r *ht
 // Example_fixedRegion demonstrates fixed region AWS client injection.
 // Use InRegion[T] wrapper when you need to access resources in a specific
 // region (e.g., S3 buckets that must be in a particular region).
+//
+//nolint:testableexamples // Run() blocks indefinitely, no testable output.
 func Example_fixedRegion() {
 	blwa.NewApp[Env](
 		func(m *blwa.Mux, h *UploadHandlers) {
@@ -224,6 +230,8 @@ func (h *SecretHandlers) Connect(ctx *blwa.Context, w bhttp.ResponseWriter, r *h
 
 // Example_secrets demonstrates retrieving secrets from AWS Secrets Manager.
 // Use Runtime.Secret to fetch raw string secrets or extract values from JSON secrets.
+//
+//nolint:testableexamples // Run() blocks indefinitely, no testable output.
 func Example_secrets() {
 	blwa.NewApp[Env](
 		func(m *blwa.Mux, h *SecretHandlers) {
@@ -236,7 +244,7 @@ func Example_secrets() {
 // MultiRegionHandlers demonstrates all three region types in one handler.
 type MultiHandlers struct {
 	rt     *blwa.Runtime[Env]
-	dynamo *dynamodb.Client           // local region (default)
+	dynamo *dynamodb.Client          // local region (default)
 	ssm    *blwa.Primary[ssm.Client] // primary region
 	s3     *blwa.InRegion[s3.Client] // fixed region
 }
@@ -271,6 +279,8 @@ func (h *MultiHandlers) Process(ctx *blwa.Context, w bhttp.ResponseWriter, r *ht
 // - Local region clients for low-latency data access
 // - Primary region clients for shared configuration
 // - Fixed region clients for specific resources
+//
+//nolint:testableexamples // Run() blocks indefinitely, no testable output.
 func Example_multiRegion() {
 	blwa.NewApp[Env](
 		func(m *blwa.Mux, h *MultiHandlers) {

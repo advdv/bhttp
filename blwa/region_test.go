@@ -23,7 +23,7 @@ type regionTestEnv struct {
 // RegionHandlers demonstrates all three region types injected via fx.
 type RegionHandlers struct {
 	rt     *blwa.Runtime[regionTestEnv]
-	dynamo *dynamodb.Client            // local region
+	dynamo *dynamodb.Client           // local region
 	s3     *blwa.Primary[s3.Client]   // primary region
 	sqs    *blwa.InRegion[sqs.Client] // fixed region
 }
