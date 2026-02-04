@@ -15,14 +15,46 @@ import (
 type ctxKey int
 
 const (
-	ctxKeyDeps ctxKey = iota
+	ctxKeyRequestDep ctxKey = iota
 	ctxKeyLWAContext
 )
 
-// deps holds request-scoped dependencies available via context.
+// requestDep holds request-scoped dependencies available via context.
 // App-scoped dependencies (env, mux, awsClients) are accessed via Runtime instead.
-type deps struct {
+type requestDep struct {
 	logger *zap.Logger
+}
+
+// Context is blwa's custom context type that provides method access to request-scoped values.
+// It embeds context.Context and adds convenience methods for accessing logging, tracing, and
+// Lambda execution context.
+//
+// Handlers receive *Context and can use either method syntax or package functions:
+//
+//	// Method syntax
+//	ctx.Log().Info("processing request")
+//	ctx.Span().AddEvent("fetching data")
+//
+//	// Package function syntax (equivalent)
+//	blwa.Log(ctx).Info("processing request")
+//	blwa.Span(ctx).AddEvent("fetching data")
+type Context struct {
+	context.Context
+}
+
+// Log returns a trace-correlated zap logger.
+func (c *Context) Log() *zap.Logger {
+	return Log(c.Context)
+}
+
+// LWA returns the Lambda execution context, or nil if not running in Lambda.
+func (c *Context) LWA() *LWAContext {
+	return LWA(c.Context)
+}
+
+// Span returns the current OpenTelemetry trace span.
+func (c *Context) Span() trace.Span {
+	return Span(c.Context)
 }
 
 // LWAContext contains Lambda execution context from the x-amzn-lambda-context header.
@@ -63,11 +95,11 @@ func (lc *LWAContext) RemainingTime() time.Duration {
 	return remaining
 }
 
-// withDeps injects dependencies into the request context.
-func withDeps(d *deps) bhttp.Middleware {
+// withRequestDep injects dependencies into the request context.
+func withRequestDep(d *requestDep) bhttp.Middleware {
 	return func(next bhttp.BareHandler) bhttp.BareHandler {
 		return bhttp.BareHandlerFunc(func(w bhttp.ResponseWriter, r *http.Request) error {
-			ctx := context.WithValue(r.Context(), ctxKeyDeps, d)
+			ctx := context.WithValue(r.Context(), ctxKeyRequestDep, d)
 			return next.ServeBareBHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -89,10 +121,10 @@ func withLWAContext() bhttp.Middleware {
 	}
 }
 
-func depsFromContext(ctx context.Context) *deps {
-	d, ok := ctx.Value(ctxKeyDeps).(*deps)
+func requestDepFromContext(ctx context.Context) *requestDep {
+	d, ok := ctx.Value(ctxKeyRequestDep).(*requestDep)
 	if !ok {
-		panic("blwa: deps not found in context; is the middleware configured?")
+		panic("blwa: requestDep not found in context; is the middleware configured?")
 	}
 	return d
 }
@@ -106,7 +138,7 @@ func LWA(ctx context.Context) *LWAContext {
 
 // Log returns a trace-correlated zap logger from the context.
 func Log(ctx context.Context) *zap.Logger {
-	d := depsFromContext(ctx)
+	d := requestDepFromContext(ctx)
 	return d.logger.With(traceFields(ctx)...)
 }
 

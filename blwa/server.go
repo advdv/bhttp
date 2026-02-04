@@ -30,11 +30,11 @@ type ServerParams struct {
 
 // NewServer creates an HTTP server with all middleware and routing configured.
 func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
-	d := &deps{
+	d := &requestDep{
 		logger: params.Logger,
 	}
 
-	params.Mux.Use(withDeps(d))
+	params.Mux.Use(withRequestDep(d))
 	params.Mux.Use(withLWAContext())
 
 	// Register the health check endpoint at the path specified by AWS_LWA_READINESS_CHECK_PATH.
@@ -46,7 +46,7 @@ func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
 	if healthHandler == nil {
 		healthHandler = defaultHealthHandler
 	}
-	params.Mux.HandleFunc(healthPath, func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	params.Mux.HandleFunc(healthPath, func(_ *Context, w bhttp.ResponseWriter, _ *http.Request) error {
 		healthHandler(w, nil)
 		return nil
 	})

@@ -82,24 +82,32 @@
 //	// e.g., secret contains: {"database": {"host": "...", "password": "secret123"}}
 //	password, err := h.rt.Secret(ctx, "my-db-credentials", "database.password")
 //
-// # Context Functions
+// # Context
 //
-// Request-scoped values are accessed through context functions:
+// Handlers receive [*Context], which embeds context.Context and provides method access
+// to request-scoped values. Both method syntax and package functions are supported:
 //
-//   - [Log] returns a trace-correlated zap logger
-//   - [Span] returns the current OpenTelemetry span for custom instrumentation
-//   - [LWA] retrieves Lambda execution context (request ID, deadline, etc.)
+//	func (h *Handlers) GetItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+//	    // Method syntax (preferred)
+//	    ctx.Log().Info("fetching item")
+//	    ctx.Span().AddEvent("fetching item")
+//	    if lwa := ctx.LWA(); lwa != nil {
+//	        // running in Lambda
+//	    }
 //
-// Example handler using context functions:
-//
-//	func (h *Handlers) GetItem(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
-//	    log := blwa.Log(ctx)  // trace-correlated logger
-//	    env := h.rt.Env()      // from Runtime, not context
-//
+//	    // Package function syntax (equivalent)
+//	    blwa.Log(ctx).Info("fetching item")
 //	    blwa.Span(ctx).AddEvent("fetching item")
 //
-//	    // ... handler logic
+//	    env := h.rt.Env() // from Runtime, not context
+//	    // ...
 //	}
+//
+// Available methods and functions:
+//
+//   - [Context.Log] / [Log] - trace-correlated zap logger
+//   - [Context.Span] / [Span] - current OpenTelemetry span for custom instrumentation
+//   - [Context.LWA] / [LWA] - Lambda execution context (request ID, deadline, etc.)
 //
 // # Tracing
 //
