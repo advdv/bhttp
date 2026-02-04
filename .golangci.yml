@@ -1,69 +1,132 @@
-linters-settings:
-  nlreturn:
-    block-size: 3
-  staticcheck:
-    checks: ["all"]
-  stylecheck:
-    checks: ["all"]
-  funlen:
-    lines: 200
-  cyclop:
-    max-complexity: 30
-  varnamelen:
-    max-distance: 15
-    ignore-names:
-      - err # error values
-      - w # io.Writers
-      - r # io.Readers or http.Request
-      - ok # common bool
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
-    - dupl # false positive galore
-    - exhaustruct # CDK has large structs we use partially
-    - gochecknoinits # frameworks and magefile use init responsibly
-    - gci # no way to automate this in the vscode so default ordering is good enough
-    - ireturn # our oapi implementations return interfaces all the time
-    - tagliatelle # we have lots of aws tags that don't follow the standards
-    - nonamedreturns # makes some functions very unreadable
-    - wsl # too strict
-    - gochecknoglobals # too strict
-    - gomoddirectives # can't get this to shutup
-    - goconst # text identifiers makes it more readable
-    - funlen # trust our own judgement
-    - err113 # too much effort
-    - perfsprint #microoptimization
     - canonicalheader
-    - unparam # don't be too smart
-    - dupword # gets in the way often when we're commenting out stuff
-    - containedctx # actually common for actors/workers that have a context for the lifetime
-    - paralleltest # too anoying
-    - nlreturn # too annoying for small functions
-    - mnd # just too annoying
+    - containedctx
+    - dogsled
+    - dupl
+    - dupword
+    - err113
+    - exhaustruct
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - gomoddirectives
+    - ireturn
+    - maintidx
+    - mnd
+    - nlreturn
+    - nonamedreturns
+    - perfsprint
+    - thelper
+    - unparam
     - wrapcheck
-    - exportloopref # deprecated
-    - thelper # not usefull it seems
-    - depguard
-
-issues:
-  include:
-    - EXC0015 # warn for lack of package comment
-    - EXC0013 # warn for lack of package comment
-    - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - dupl
-        - gosec
-        - forcetypeassert
-        - gochecknoglobals
-        - lll
-        - err113
-        - revive
-        - perfsprint
-        - wrapcheck
-        - nlreturn
-        - varnamelen
-        - errcheck
-        - nilnil
+    - wsl_v5
+    - wsl
+    - noinlineerr
+    - embeddedstructfieldcheck
+    - tagalign
+  settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^print(ln)?$
+        - pattern: ^fmt\.Print.*$
+          msg: Do not commit print statements.
+        - pattern: ^fmt\.Errorf.*$
+          msg: use 'github.com/cockroachdb/errors' for errors
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+    cyclop:
+      max-complexity: 30
+    depguard:
+      rules:
+        force_cockroachdb_errors:
+          list-mode: lax
+          files:
+            - $all
+          deny:
+            - pkg: errors
+              desc: use 'github.com/cockroachdb/errors' instead
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+    funlen:
+      lines: 200
+    nlreturn:
+      block-size: 3
+    staticcheck:
+      checks:
+        - all
+        - "-ST1000"
+        - "-QF1008"
+    varnamelen:
+      max-distance: 15
+      ignore-names:
+        - id
+        - err
+        - db
+        - tx
+        - w
+        - r
+        - ok
+        - op # operation
+        - lc # lifecycle
+        - pk # partition key
+        - sk # sort key
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - interfacebloat
+        path: internal/rpc/rpc.go
+      - linters:
+          - paralleltest
+        path: testing/e2e/
+      - linters:
+          - dupl
+          - err113
+          - errcheck
+          - forcetypeassert
+          - gochecknoglobals
+          - gocyclo
+          - gosec
+          - lll
+          - nilnil
+          - nlreturn
+          - perfsprint
+          - revive
+          - varnamelen
+          - wrapcheck
+          - gocognit
+        path: _test\.go
+      - path: (.+)\.go$
+        text: ST1003
+    paths:
+      - infra/builds
+      - node_modules
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - infra/builds
+      - node_modules
+      - third_party$
+      - builtin$
+      - examples$
