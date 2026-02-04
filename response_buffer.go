@@ -1,4 +1,3 @@
-// Package bhttp provides buffered HTTP response handling.
 package bhttp
 
 import (
