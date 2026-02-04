@@ -5,8 +5,8 @@ set -euo pipefail
 version=$(cat version.txt)
 
 if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "invalid version format: $version" >&2
-    exit 1
+	echo "invalid version format: $version" >&2
+	exit 1
 fi
 
 git tag "$version"

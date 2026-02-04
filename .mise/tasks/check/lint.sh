@@ -4,4 +4,4 @@
 set -euo pipefail
 
 golangci-lint run ./...
-find . -name "*.sh" -type f | xargs -r shellcheck
+find . -name "*.sh" -type f -exec shellcheck {} +
