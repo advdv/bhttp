@@ -1,9 +1,8 @@
 package bhttp
 
 import (
-	"fmt"
-
 	"github.com/advdv/bhttp/internal/httppattern"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 )
 
@@ -21,12 +20,12 @@ func NewReverser() *Reverser {
 func (r Reverser) Reverse(name string, vals ...string) (string, error) {
 	pat, ok := r.pats[name]
 	if !ok {
-		return "", fmt.Errorf("no pattern named: %q, got: %v", name, lo.Keys(r.pats)) //nolint:goerr113
+		return "", errors.Newf("no pattern named: %q, got: %v", name, lo.Keys(r.pats))
 	}
 
 	res, err := httppattern.Build(pat, vals...)
 	if err != nil {
-		return "", fmt.Errorf("failed to build: %w", err)
+		return "", errors.Wrap(err, "failed to build")
 	}
 
 	return res, nil
@@ -45,12 +44,12 @@ func (r Reverser) Named(name, str string) string {
 // NamedPattern will parse 's' as a path pattern while returning it as well.
 func (r Reverser) NamedPattern(name, str string) (string, error) {
 	if _, exists := r.pats[name]; exists {
-		return str, fmt.Errorf("pattern with name %q already exists", name) //nolint:goerr113
+		return str, errors.Newf("pattern with name %q already exists", name)
 	}
 
 	pat, err := httppattern.ParsePattern(str)
 	if err != nil {
-		return str, fmt.Errorf("failed to parse pattern: %w", err)
+		return str, errors.Wrap(err, "failed to parse pattern")
 	}
 
 	r.pats[name] = pat

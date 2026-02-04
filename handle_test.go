@@ -3,7 +3,6 @@ package bhttp_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -13,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/advdv/bhttp"
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,7 +66,7 @@ func TestHandleDefaultError(t *testing.T) {
 	shdrl.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
-	require.Equal(t, ``, rec.Header().Get("Is-Bar"))
+	require.Empty(t, rec.Header().Get("Is-Bar"))
 	require.Equal(t, `Internal Server Error`+"\n", rec.Body.String())
 	require.Equal(t, int64(1), logs.NumLogUnhandledServeError)
 }
@@ -81,7 +81,7 @@ func TestHandleDefaultBError(t *testing.T) {
 	shdrl.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.Equal(t, ``, rec.Header().Get("Is-Bar"))
+	require.Empty(t, rec.Header().Get("Is-Bar"))
 	require.Equal(t, `Bad Request: foo`+"\n", rec.Body.String())
 	require.Equal(t, int64(0), logs.NumLogUnhandledServeError)
 }
@@ -96,7 +96,7 @@ func TestSuperfluousWriteOnError(t *testing.T) {
 	srv := http.Server{ErrorLog: logs, Handler: bhttp.ToStd(bhttp.ToBare(hdlr,
 		bhttp.StdContextInit), -1, bhttp.NewStdLogger(logs))}
 
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", ":0")
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

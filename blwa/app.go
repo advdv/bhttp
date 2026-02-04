@@ -94,7 +94,8 @@ func NewApp[E Environment](routing any, opts ...Option) *App {
 		opt(&cfg)
 	}
 
-	baseOpts := []fx.Option{
+	baseOpts := make([]fx.Option, 0, 14+len(cfg.FxOptions))
+	baseOpts = append(baseOpts, []fx.Option{
 		fx.NopLogger,
 		fx.Provide(ParseEnv[E]()),
 		fx.Provide(func(e E) Environment { return e }),
@@ -113,11 +114,11 @@ func NewApp[E Environment](routing any, opts ...Option) *App {
 		}),
 		fx.Invoke(startServerHook),
 		fx.Invoke(routing),
-	}
+	}...)
 
-	allOpts := append(baseOpts, cfg.FxOptions...)
+	baseOpts = append(baseOpts, cfg.FxOptions...)
 	return &App{
-		app: fx.New(allOpts...),
+		app: fx.New(baseOpts...),
 	}
 }
 
@@ -134,7 +135,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 
-	stopCtx, cancel := context.WithTimeout(context.Background(), a.app.StopTimeout())
+	stopCtx, cancel := context.WithTimeout(ctx, a.app.StopTimeout())
 	defer cancel()
 
 	return a.app.Stop(stopCtx)

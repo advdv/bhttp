@@ -1,9 +1,10 @@
 package bhttp
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/cockroachdb/errors"
 )
 
 // Code is an error code that mirrors the http status codes. It can be used to create errors to pass around across

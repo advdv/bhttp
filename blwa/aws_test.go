@@ -51,6 +51,7 @@ func (h *MultiRegionHandlers) TestClients(_ *blwa.Context, w bhttp.ResponseWrite
 
 func TestAWSClient_LocalRegion(t *testing.T) {
 	setupTestEnv(t)
+	t.Setenv("AWS_LWA_PORT", "18087") // Use unique port to avoid collision with other tests
 
 	type LocalOnlyHandlers struct {
 		dynamo *dynamodb.Client
@@ -84,7 +85,10 @@ func TestAWSClient_LocalRegion(t *testing.T) {
 		t.Fatal("dynamo client should be injected")
 	}
 
-	resp, err := http.Get("http://localhost:18081/test")
+	reqCtx, reqCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer reqCancel()
+	req, _ := http.NewRequestWithContext(reqCtx, http.MethodGet, "http://localhost:18087/test", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /test failed: %v", err)
 	}
@@ -150,7 +154,10 @@ func TestAWSClient_PrimaryRegion(t *testing.T) {
 		t.Fatal("ssm Primary client should be injected")
 	}
 
-	resp, err := http.Get("http://localhost:18082/test")
+	reqCtx, reqCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer reqCancel()
+	req, _ := http.NewRequestWithContext(reqCtx, http.MethodGet, "http://localhost:18082/test", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /test failed: %v", err)
 	}
@@ -219,7 +226,10 @@ func TestAWSClient_FixedRegion(t *testing.T) {
 		t.Errorf("expected region=ap-southeast-1, got %s", injected.s3.Region)
 	}
 
-	resp, err := http.Get("http://localhost:18083/test")
+	reqCtx, reqCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer reqCancel()
+	req, _ := http.NewRequestWithContext(reqCtx, http.MethodGet, "http://localhost:18083/test", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /test failed: %v", err)
 	}
@@ -278,7 +288,11 @@ func TestAWSClient_AllRegionTypes(t *testing.T) {
 	go func() { _ = app.Start(ctx) }()
 	time.Sleep(100 * time.Millisecond)
 
-	resp, err := http.Get("http://localhost:18084/test")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:18084/test", nil)
+	if err != nil {
+		t.Fatalf("create request failed: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /test failed: %v", err)
 	}

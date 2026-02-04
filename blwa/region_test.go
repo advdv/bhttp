@@ -83,7 +83,11 @@ func TestAWS_RetrievesCorrectClient(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("http://localhost:18085/test")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:18085/test", nil)
+	if err != nil {
+		t.Fatalf("create request failed: %v", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("GET /test failed: %v", err)
 	}

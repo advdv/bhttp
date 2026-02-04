@@ -109,7 +109,9 @@ func NewAWSConfig(ctx context.Context) (aws.Config, error) {
 // provideAWSConfig is an fx provider that loads AWS config with a timeout.
 // It automatically instruments the config with OpenTelemetry for AWS SDK tracing.
 // The TracerProvider and Propagator are explicitly injected to avoid global state.
-func provideAWSConfig(lc fx.Lifecycle, tp trace.TracerProvider, prop propagation.TextMapPropagator) (aws.Config, error) {
+func provideAWSConfig(
+	lc fx.Lifecycle, tp trace.TracerProvider, prop propagation.TextMapPropagator,
+) (aws.Config, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), awsConfigTimeout)
 	defer cancel()
 	cfg, err := NewAWSConfig(ctx)

@@ -43,7 +43,7 @@ func NewHandlers(
 	return &Handlers{rt: rt, dynamo: dynamo, s3: s3, sqs: sqs}
 }
 
-// 1. GET /context - tests Log, Span, Env, LWA, Reverse
+// TestContext tests Log, Span, Env, LWA, Reverse via GET /context.
 func (h *Handlers) TestContext(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	env := h.rt.Env()
 	lwa := ctx.LWA()
@@ -51,7 +51,7 @@ func (h *Handlers) TestContext(ctx *blwa.Context, w bhttp.ResponseWriter, r *htt
 	itemURL, err := h.rt.Reverse("get-item", "test-123")
 	if err != nil {
 		http.Error(w, "reverse failed: "+err.Error(), http.StatusInternalServerError)
-		return nil
+		return err
 	}
 
 	ctx.Span().AddEvent("context-test")
@@ -71,7 +71,7 @@ func (h *Handlers) TestContext(ctx *blwa.Context, w bhttp.ResponseWriter, r *htt
 	})
 }
 
-// 2. GET /aws - tests all AWS clients (now directly injected)
+// TestAWS tests all AWS clients (now directly injected) via GET /aws.
 func (h *Handlers) TestAWS(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	ctx.Log().Info("testing AWS clients")
 
@@ -83,7 +83,7 @@ func (h *Handlers) TestAWS(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Re
 	})
 }
 
-// 3. POST /items - tests request body, logging with env
+// CreateItem tests request body, logging with env via POST /items.
 func (h *Handlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	env := h.rt.Env()
 
@@ -105,7 +105,7 @@ func (h *Handlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http
 	})
 }
 
-// 4. GET /items/{id} - tests path params with context and reverse
+// GetItem tests path params with context and reverse via GET /items/{id}.
 func (h *Handlers) GetItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
 	env := h.rt.Env()
@@ -138,6 +138,23 @@ func setupTestEnv(t *testing.T) {
 	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
 }
 
+func doGet(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return client.Do(req)
+}
+
+func doPost(ctx context.Context, client *http.Client, url, contentType string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+	return client.Do(req)
+}
+
 func TestApp_ContextFeatures(t *testing.T) {
 	setupTestEnv(t)
 
@@ -165,7 +182,7 @@ func TestApp_ContextFeatures(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	t.Run("Context_Log_Span_Env_LWA_Reverse", func(t *testing.T) {
-		resp, err := client.Get(baseURL + "/context")
+		resp, err := doGet(ctx, client, baseURL+"/context")
 		if err != nil {
 			t.Fatalf("GET /context failed: %v", err)
 		}
@@ -195,7 +212,7 @@ func TestApp_ContextFeatures(t *testing.T) {
 	})
 
 	t.Run("AWS_Clients", func(t *testing.T) {
-		resp, err := client.Get(baseURL + "/aws")
+		resp, err := doGet(ctx, client, baseURL+"/aws")
 		if err != nil {
 			t.Fatalf("GET /aws failed: %v", err)
 		}
@@ -219,7 +236,7 @@ func TestApp_ContextFeatures(t *testing.T) {
 
 	t.Run("POST_with_body", func(t *testing.T) {
 		body := strings.NewReader(`{"name": "Test", "value": 42}`)
-		resp, err := client.Post(baseURL+"/items", "application/json", body)
+		resp, err := doPost(ctx, client, baseURL+"/items", "application/json", body)
 		if err != nil {
 			t.Fatalf("POST /items failed: %v", err)
 		}
@@ -240,7 +257,7 @@ func TestApp_ContextFeatures(t *testing.T) {
 	})
 
 	t.Run("PathParams_and_Reverse", func(t *testing.T) {
-		resp, err := client.Get(baseURL + "/items/item-456")
+		resp, err := doGet(ctx, client, baseURL+"/items/item-456")
 		if err != nil {
 			t.Fatalf("GET /items/item-456 failed: %v", err)
 		}
@@ -259,7 +276,7 @@ func TestApp_ContextFeatures(t *testing.T) {
 	})
 
 	t.Run("Health_Endpoint", func(t *testing.T) {
-		resp, err := client.Get(baseURL + "/ready")
+		resp, err := doGet(ctx, client, baseURL+"/ready")
 		if err != nil {
 			t.Fatalf("GET /ready failed: %v", err)
 		}

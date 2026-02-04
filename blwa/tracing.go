@@ -2,11 +2,11 @@ package blwa
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/aws-observability/aws-otel-go/exporters/xrayudp"
+	"github.com/cockroachdb/errors"
 	"go.opentelemetry.io/contrib/detectors/aws/lambda"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
@@ -81,13 +81,15 @@ func newExporter(ctx context.Context, exporterType string) (sdktrace.SpanExporte
 	case "xrayudp":
 		return xrayudp.NewSpanExporter(ctx)
 	default:
-		return nil, fmt.Errorf("unsupported OTEL_EXPORTER: %q (supported: stdout, xrayudp)", exporterType)
+		return nil, errors.Newf("unsupported OTEL_EXPORTER: %q (supported: stdout, xrayudp)", exporterType)
 	}
 }
 
 // newResource creates a resource with appropriate attributes for the exporter.
 // If gatewayAccessLogGroup is set, it's added to aws.log.group.names for X-Ray log correlation.
-func newResource(ctx context.Context, exporterType, serviceName, gatewayAccessLogGroup string) (*resource.Resource, error) {
+func newResource(
+	ctx context.Context, exporterType, serviceName, gatewayAccessLogGroup string,
+) (*resource.Resource, error) {
 	if exporterType == "xrayudp" {
 		// Use Lambda resource detector for production Lambda environment.
 		lambdaDetector := lambda.NewResourceDetector()
@@ -106,7 +108,9 @@ func newResource(ctx context.Context, exporterType, serviceName, gatewayAccessLo
 
 // withAdditionalLogGroups merges additional CloudWatch log groups into the resource
 // for X-Ray log correlation. Empty log group names are filtered out.
-func withAdditionalLogGroups(ctx context.Context, base *resource.Resource, logGroups ...string) (*resource.Resource, error) {
+func withAdditionalLogGroups(
+	ctx context.Context, base *resource.Resource, logGroups ...string,
+) (*resource.Resource, error) {
 	var filtered []string
 	for _, lg := range logGroups {
 		if lg != "" {
@@ -131,7 +135,9 @@ func withAdditionalLogGroups(ctx context.Context, base *resource.Resource, logGr
 // withTracing wraps the handler with otelhttp for automatic span creation.
 // Requests to excludePaths are not traced.
 // The TracerProvider and Propagator are explicitly injected to avoid global state.
-func withTracing(tp trace.TracerProvider, prop propagation.TextMapPropagator, serviceName string, excludePaths ...string) func(http.Handler) http.Handler {
+func withTracing(
+	tp trace.TracerProvider, prop propagation.TextMapPropagator, serviceName string, excludePaths ...string,
+) func(http.Handler) http.Handler {
 	excludeSet := make(map[string]struct{}, len(excludePaths))
 	for _, p := range excludePaths {
 		excludeSet[p] = struct{}{}

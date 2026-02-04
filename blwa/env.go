@@ -1,9 +1,8 @@
 package blwa
 
 import (
-	"fmt"
-
 	"github.com/caarlos0/env/v11"
+	"github.com/cockroachdb/errors"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -74,7 +73,7 @@ var _ Environment = BaseEnvironment{}
 func ParseEnv[E Environment]() func() (E, error) {
 	return func() (e E, err error) {
 		if err := env.Parse(&e); err != nil {
-			return e, fmt.Errorf("failed to parse environment: %w", err)
+			return e, errors.Wrap(err, "failed to parse environment")
 		}
 		return e, nil
 	}

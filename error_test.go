@@ -1,10 +1,10 @@
 package bhttp_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/advdv/bhttp"
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/require"
 )
 

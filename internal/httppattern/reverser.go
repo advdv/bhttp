@@ -1,8 +1,9 @@
 package httppattern
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/cockroachdb/errors"
 )
 
 // Pattern exposes the private type /net/http.pattern.
@@ -52,8 +53,7 @@ func Build(pat *Pattern, vals ...string) (string, error) {
 
 			// if there are not enough values we error.
 			if vidx > (len(vals) - 1) {
-				//nolint:goerr113
-				return "", fmt.Errorf("not enough values for pattern %q, expect at least: %d", pat.str, vidx+1)
+				return "", errors.Newf("not enough values for pattern %q, expect at least: %d", pat.str, vidx+1)
 			}
 
 			res.WriteString(vals[vidx])
@@ -68,8 +68,7 @@ func Build(pat *Pattern, vals ...string) (string, error) {
 	}
 
 	if len(vals) != vused {
-		//nolint:goerr113
-		return res.String(), fmt.Errorf("too many values for pattern %q, got: %d, used: %d", pat.str, len(vals), vused)
+		return res.String(), errors.Newf("too many values for pattern %q, got: %d, used: %d", pat.str, len(vals), vused)
 	}
 
 	return res.String(), nil

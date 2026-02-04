@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/advdv/bhttp"
 	"go.opentelemetry.io/otel/propagation"
@@ -55,8 +56,9 @@ func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
 	handler := withTracing(params.TracerProv, params.Propagator, params.Env.serviceName(), healthPath)(params.Mux)
 
 	return &http.Server{
-		Addr:    fmt.Sprintf(":%d", params.Env.port()),
-		Handler: handler,
+		Addr:              fmt.Sprintf(":%d", params.Env.port()),
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 }
 

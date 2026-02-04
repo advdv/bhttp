@@ -19,6 +19,7 @@ linters:
     - mnd
     - nlreturn
     - nonamedreturns
+    - paralleltest
     - perfsprint
     - thelper
     - unparam

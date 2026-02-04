@@ -3,12 +3,12 @@ package bhttp_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 
 	"github.com/advdv/bhttp"
+	"github.com/cockroachdb/errors"
 )
 
 func Example() {

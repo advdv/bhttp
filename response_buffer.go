@@ -2,10 +2,10 @@ package bhttp
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"net/http"
 	"sync"
+
+	"github.com/cockroachdb/errors"
 )
 
 // ErrBufferFull is returned when the write call will cause the buffer to be filled beyond its limit.
@@ -27,7 +27,7 @@ type ResponseBuffer struct {
 // responseBufferPool allows us to reuse some ResponseBuffer objects to
 // conserve system resources.
 var responseBufferPool = sync.Pool{ //nolint:gochecknoglobals
-	New: func() interface{} { return new(ResponseBuffer) },
+	New: func() any { return new(ResponseBuffer) },
 }
 
 // NewResponseWriter inits a buffered response writer. It has a configurable limit after
@@ -104,12 +104,6 @@ func (w *ResponseBuffer) Reset() {
 	w.buf.Reset()
 }
 
-// markHeaderAsFlushed will mark the headers are being flushed to emulate the stdlib response writer
-// behaviour.
-func (w *ResponseBuffer) markHeaderAsFlushed() {
-	w.headerFlushed = true
-}
-
 // Write appends the contents of p to the buffered response, growing the internal buffer as needed. If
 // the write will cause the buffer be larger then the configure limit it will return ErrBufferFull.
 func (w *ResponseBuffer) Write(buf []byte) (int, error) {
@@ -121,7 +115,7 @@ func (w *ResponseBuffer) Write(buf []byte) (int, error) {
 
 	n, err := w.buf.Write(buf)
 	if err != nil {
-		return 0, fmt.Errorf("failed to write underlying response: %w", err)
+		return 0, errors.Wrap(err, "failed to write underlying response")
 	}
 
 	return n, nil
@@ -135,7 +129,7 @@ func (w *ResponseBuffer) FlushBuffer() error {
 
 	_, err := w.buf.WriteTo(w.resp)
 	if err != nil {
-		return fmt.Errorf("failed to write underlying: %w", err)
+		return errors.Wrap(err, "failed to write underlying")
 	}
 
 	w.bodyFlushed = true
@@ -152,7 +146,7 @@ func (w *ResponseBuffer) FlushError() error {
 
 	// calling flush on the underlying writer to make it explicit
 	if err := http.NewResponseController(w.resp).Flush(); err != nil {
-		return fmt.Errorf("failed to flush underlying: %w", err)
+		return errors.Wrap(err, "failed to flush underlying")
 	}
 
 	return nil
@@ -164,5 +158,11 @@ func (w *ResponseBuffer) Unwrap() http.ResponseWriter {
 	return w.resp
 }
 
+// markHeaderAsFlushed will mark the headers are being flushed to emulate the stdlib response writer
+// behaviour.
+func (w *ResponseBuffer) markHeaderAsFlushed() {
+	w.headerFlushed = true
+}
+
 // errBufferFull returns an error that Is ErrBufferFull but is not == to it.
-func errBufferFull() error { return fmt.Errorf("%w", ErrBufferFull) }
+func errBufferFull() error { return errors.Wrap(ErrBufferFull, "") }

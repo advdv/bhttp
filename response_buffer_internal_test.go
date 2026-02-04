@@ -2,7 +2,6 @@ package bhttp
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -171,9 +171,9 @@ func TestHandleImplementations(t *testing.T) {
 			log1 := log.New(io.Discard, "", 0)
 			log2 := log.New(io.Discard, "", 0)
 
-			ln1, err := net.Listen("tcp", "127.0.0.1:0")
+			ln1, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 			require.NoError(t, err, "should be able to listen on ephemeral port")
-			ln2, err := net.Listen("tcp", "127.0.0.1:0")
+			ln2, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 			require.NoError(t, err, "should be able to listen on ephemeral port")
 
 			srv1 := &httptest.Server{

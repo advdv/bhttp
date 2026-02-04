@@ -4,7 +4,7 @@
 
 // Patterns for ServeMux routing.
 
-//nolint:wsl,nlreturn,lll,unused,stylecheck,funlen,varnamelen,gocognit,nestif,exhaustive,gocritic,goerr113,revive
+//nolint:wsl,nlreturn,lll,unused,funlen,varnamelen,gocognit,nestif,exhaustive,gocritic,staticcheck,depguard,forbidigo
 package httppattern
 
 import (

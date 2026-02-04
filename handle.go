@@ -2,9 +2,9 @@ package bhttp
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
+
+	"github.com/cockroachdb/errors"
 )
 
 // Context constraint for "leaf" nodes.
@@ -54,7 +54,7 @@ func ToBare[C Context](h Handler[C], contextInit ContextInitFunc[C]) BareHandler
 	return BareHandlerFunc(func(w ResponseWriter, r *http.Request) error {
 		ctx, err := contextInit(r)
 		if err != nil {
-			return fmt.Errorf("init typed context from standard request context: %w", err)
+			return errors.Wrap(err, "init typed context from standard request context")
 		}
 
 		return h.ServeBHTTP(ctx, w, r)
