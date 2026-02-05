@@ -9,16 +9,16 @@ Buffered HTTP handlers with error returns for Go.
 
 Go's standard library HTTP handlers return nothing: `func(w http.ResponseWriter, r *http.Request)`. This forces error handling inline with `http.Error()` calls scattered throughout your code, making it hard to centralize error responses or recover from partial writes.
 
-bhttp adds one thing: **handlers that return errors**. It builds directly on `net/http` (including Go 1.22+ routing patterns) rather than replacing it. The buffered response writer is a necessary consequence—it allows the framework to discard partial output and generate clean error responses when handlers fail.
+bhttp adds two things: **context as the first argument** and **handlers that return errors**. It builds directly on `net/http` (including Go 1.22+ routing patterns) rather than replacing it. The buffered response writer is a necessary consequence—it allows the framework to discard partial output and generate clean error responses when handlers fail.
 
 ## Overview
 
 bhttp extends the standard library's HTTP handling with:
 
-- **Buffered responses** that allow complete response rewriting on errors
+- **Context-first handlers** with context as the first argument
 - **Error-returning handlers** for clean error propagation
+- **Buffered responses** that allow complete response rewriting on errors
 - **Named routes** with URL generation
-- **Typed contexts** for request-scoped data
 
 ## Installation
 
@@ -111,27 +111,6 @@ func loggingMiddleware(next bhttp.BareHandler) bhttp.BareHandler {
 
 mux := bhttp.NewServeMux()
 mux.Use(loggingMiddleware)
-```
-
-### Typed Contexts
-
-Use custom context types for request-scoped data:
-
-```go
-type AppContext struct {
-    context.Context
-    User *User
-}
-
-func initContext(r *http.Request) (AppContext, error) {
-    user, err := authenticate(r)
-    if err != nil {
-        return AppContext{}, bhttp.NewError(bhttp.CodeUnauthorized, err)
-    }
-    return AppContext{Context: r.Context(), User: user}, nil
-}
-
-mux := bhttp.NewCustomServeMux(initContext, -1, logger, http.NewServeMux(), bhttp.NewReverser())
 ```
 
 ### Named Routes

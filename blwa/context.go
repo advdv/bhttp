@@ -25,38 +25,6 @@ type requestDep struct {
 	logger *zap.Logger
 }
 
-// Context is blwa's custom context type that provides method access to request-scoped values.
-// It embeds context.Context and adds convenience methods for accessing logging, tracing, and
-// Lambda execution context.
-//
-// Handlers receive *Context and can use either method syntax or package functions:
-//
-//	// Method syntax
-//	ctx.Log().Info("processing request")
-//	ctx.Span().AddEvent("fetching data")
-//
-//	// Package function syntax (equivalent)
-//	blwa.Log(ctx).Info("processing request")
-//	blwa.Span(ctx).AddEvent("fetching data")
-type Context struct {
-	context.Context
-}
-
-// Log returns a trace-correlated zap logger.
-func (c *Context) Log() *zap.Logger {
-	return Log(c.Context)
-}
-
-// LWA returns the Lambda execution context, or nil if not running in Lambda.
-func (c *Context) LWA() *LWAContext {
-	return LWA(c.Context)
-}
-
-// Span returns the current OpenTelemetry trace span.
-func (c *Context) Span() trace.Span {
-	return Span(c.Context)
-}
-
 // LWAContext contains Lambda execution context from the x-amzn-lambda-context header.
 type LWAContext struct {
 	RequestID          string       `json:"request_id"`

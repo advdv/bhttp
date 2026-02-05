@@ -47,7 +47,7 @@ func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
 	if healthHandler == nil {
 		healthHandler = defaultHealthHandler
 	}
-	params.Mux.HandleFunc(healthPath, func(_ *Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	params.Mux.HandleFunc(healthPath, func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 		healthHandler(w, nil)
 		return nil
 	})

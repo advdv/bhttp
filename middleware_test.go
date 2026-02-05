@@ -11,28 +11,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testCtx2 struct {
-	context.Context
-	FirstName string
-}
-
-func handleCtx2(ctx testCtx2, w bhttp.ResponseWriter, r *http.Request) error {
-	fmt.Fprintf(w, "%s", ctx.FirstName)
-	return nil
-}
-
-func newCtx2(r *http.Request) (testCtx2, error) {
-	name, ok := r.Context().Value("v").(string)
+func handleMw(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+	name, ok := ctx.Value("v").(string)
 	if !ok {
 		name = "Bob"
 	}
-
-	return testCtx2{r.Context(), name}, nil
+	fmt.Fprintf(w, "%s", name)
+	return nil
 }
 
 func TestNoMiddlewareWrap(t *testing.T) {
-	hdlr := bhttp.HandlerFunc[testCtx2](handleCtx2)
-	bhdlr := bhttp.Wrap(hdlr, newCtx2)
+	hdlr := bhttp.HandlerFunc(handleMw)
+	bhdlr := bhttp.Wrap(hdlr)
 
 	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/mware", nil)
 	resp := bhttp.NewResponseWriter(rec, -1)
@@ -71,8 +61,8 @@ var mw3 = func(next bhttp.BareHandler) bhttp.BareHandler {
 }
 
 func TestWithMiddleware(t *testing.T) {
-	hdlr := bhttp.HandlerFunc[testCtx2](handleCtx2)
-	bhdlr := bhttp.Wrap(hdlr, newCtx2, mw1, mw2, mw3)
+	hdlr := bhttp.HandlerFunc(handleMw)
+	bhdlr := bhttp.Wrap(hdlr, mw1, mw2, mw3)
 
 	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/mware", nil)
 	resp := bhttp.NewResponseWriter(rec, -1)

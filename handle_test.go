@@ -16,16 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testCtx1 struct {
-	context.Context
-	Username string
-}
-
-func handleCtx1(ctx testCtx1, w bhttp.ResponseWriter, r *http.Request) error {
+func handleBasic(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Is-Bar", "rab")
 	w.WriteHeader(http.StatusCreated)
 
-	fmt.Fprintf(w, `hello %s, at %s`, ctx.Username, r.URL.Path)
+	fmt.Fprintf(w, `hello user, at %s`, r.URL.Path)
 
 	if r.URL.Path == "/trigger-error" {
 		return errors.New("triggered error")
@@ -38,14 +33,10 @@ func handleCtx1(ctx testCtx1, w bhttp.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func newCtx1(r *http.Request) (testCtx1, error) {
-	return testCtx1{Context: r.Context(), Username: "foo"}, nil
-}
-
 func TestHandleBasic(t *testing.T) {
 	logs := bhttp.NewTestLogger(t)
-	hdlr := bhttp.HandlerFunc[testCtx1](handleCtx1)
-	bhdlr := bhttp.ToBare(hdlr, newCtx1)
+	hdlr := bhttp.HandlerFunc(handleBasic)
+	bhdlr := bhttp.ToBare(hdlr)
 	shdrl := bhttp.ToStd(bhdlr, -1, logs)
 
 	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/bar", nil)
@@ -53,13 +44,13 @@ func TestHandleBasic(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, rec.Code)
 	require.Equal(t, `rab`, rec.Header().Get("Is-Bar"))
-	require.Equal(t, `hello foo, at /bar`, rec.Body.String())
+	require.Equal(t, `hello user, at /bar`, rec.Body.String())
 }
 
 func TestHandleDefaultError(t *testing.T) {
 	logs := bhttp.NewTestLogger(t)
-	hdlr := bhttp.HandlerFunc[testCtx1](handleCtx1)
-	bhdlr := bhttp.ToBare(hdlr, newCtx1)
+	hdlr := bhttp.HandlerFunc(handleBasic)
+	bhdlr := bhttp.ToBare(hdlr)
 	shdrl := bhttp.ToStd(bhdlr, -1, logs)
 
 	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/trigger-error", nil)
@@ -73,8 +64,8 @@ func TestHandleDefaultError(t *testing.T) {
 
 func TestHandleDefaultBError(t *testing.T) {
 	logs := bhttp.NewTestLogger(t)
-	hdlr := bhttp.HandlerFunc[testCtx1](handleCtx1)
-	bhdlr := bhttp.ToBare(hdlr, newCtx1)
+	hdlr := bhttp.HandlerFunc(handleBasic)
+	bhdlr := bhttp.ToBare(hdlr)
 	shdrl := bhttp.ToStd(bhdlr, -1, logs)
 
 	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/trigger-b-error", nil)
@@ -87,14 +78,13 @@ func TestHandleDefaultBError(t *testing.T) {
 }
 
 func TestSuperfluousWriteOnError(t *testing.T) {
-	hdlr := bhttp.HandlerFunc[context.Context](func(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+	hdlr := bhttp.HandlerFunc(func(_ context.Context, _ bhttp.ResponseWriter, _ *http.Request) error {
 		return errors.New("foo")
 	})
 
 	var logsb bytes.Buffer
 	logs := log.New(&logsb, "", 0)
-	srv := http.Server{ErrorLog: logs, Handler: bhttp.ToStd(bhttp.ToBare(hdlr,
-		bhttp.StdContextInit), -1, bhttp.NewStdLogger(logs))}
+	srv := http.Server{ErrorLog: logs, Handler: bhttp.ToStd(bhttp.ToBare(hdlr), -1, bhttp.NewStdLogger(logs))}
 
 	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", ":0")
 	require.NoError(t, err)

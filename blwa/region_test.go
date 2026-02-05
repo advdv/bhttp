@@ -37,7 +37,7 @@ func NewRegionHandlers(
 	return &RegionHandlers{rt: rt, dynamo: dynamo, s3: s3, sqs: sqs}
 }
 
-func (h *RegionHandlers) TestClients(_ *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+func (h *RegionHandlers) TestClients(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(map[string]any{
 		"local":        h.dynamo != nil,
@@ -136,7 +136,7 @@ func TestAWS_VerifiesRegionInConfig(t *testing.T) {
 
 	app := blwa.NewApp[regionTestEnv](
 		func(m *blwa.Mux, h *verifyHandlers) {
-			m.HandleFunc("GET /test", func(_ *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 				w.WriteHeader(http.StatusOK)
 				return nil
 			})

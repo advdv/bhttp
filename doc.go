@@ -1,11 +1,12 @@
-// Package bhttp provides buffered HTTP response handling with error-returning handlers.
+// Package bhttp provides buffered HTTP response handling with context-first, error-returning handlers.
 //
 // # Overview
 //
-// bhttp extends the standard library's HTTP handling with two key features:
-// buffered response writers that allow complete response rewriting on errors,
-// and handlers that return errors instead of requiring inline error handling.
-// This design enables cleaner error propagation and centralized error responses.
+// bhttp extends the standard library's HTTP handling with three key features:
+// context as the first handler argument for cleaner signatures, handlers that
+// return errors instead of requiring inline error handling, and buffered response
+// writers that allow complete response rewriting on errors. This design enables
+// cleaner error propagation and centralized error responses.
 //
 // A minimal example:
 //
@@ -23,16 +24,13 @@
 //
 // bhttp handlers differ from standard http.Handlers in three ways:
 //
-//   - They receive a typed context as the first argument (not embedded in the request)
+//   - Context is the first argument (not extracted from the request)
 //   - They write to a [ResponseWriter] that buffers output
 //   - They return an error that triggers automatic response handling
 //
 // The handler signature is:
 //
-//	func(ctx C, w bhttp.ResponseWriter, r *http.Request) error
-//
-// Where C is any type satisfying the [Context] constraint (embedding context.Context).
-// For simple cases, use context.Context directly with [NewServeMux].
+//	func(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error
 //
 // # Buffered Response Writer
 //
@@ -84,8 +82,7 @@
 // # Middleware
 //
 // Middleware wraps handlers to add cross-cutting concerns. The [Middleware] type
-// operates on [BareHandler], which lacks the typed context (middleware runs before
-// context initialization):
+// operates on [BareHandler]:
 //
 //	func loggingMiddleware(next bhttp.BareHandler) bhttp.BareHandler {
 //	    return bhttp.BareHandlerFunc(func(w bhttp.ResponseWriter, r *http.Request) error {
@@ -115,45 +112,13 @@
 // The [Reverser] component parses standard library route patterns and
 // substitutes path parameters in order.
 //
-// # Typed Context
-//
-// For applications requiring request-scoped typed data, use [NewCustomServeMux]
-// with a custom context type:
-//
-//	type AppContext struct {
-//	    context.Context
-//	    User   *User
-//	    Logger *slog.Logger
-//	}
-//
-//	func initContext(r *http.Request) (AppContext, error) {
-//	    user, err := authenticate(r)
-//	    if err != nil {
-//	        return AppContext{}, bhttp.NewError(bhttp.CodeUnauthorized, err)
-//	    }
-//	    return AppContext{
-//	        Context: r.Context(),
-//	        User:    user,
-//	        Logger:  slog.Default().With("user", user.ID),
-//	    }, nil
-//	}
-//
-//	mux := bhttp.NewCustomServeMux(initContext, -1, logger, http.NewServeMux(), bhttp.NewReverser())
-//
-// Handlers then receive the typed context directly:
-//
-//	func getProfile(ctx AppContext, w bhttp.ResponseWriter, r *http.Request) error {
-//	    ctx.Logger.Info("fetching profile")
-//	    return json.NewEncoder(w).Encode(ctx.User)
-//	}
-//
 // # ServeMux
 //
 // [ServeMux] combines all components into a complete HTTP multiplexer that
 // implements http.Handler:
 //
-//   - [NewServeMux] creates a mux with standard context.Context
-//   - [NewCustomServeMux] creates a mux with a custom typed context
+//   - [NewServeMux] creates a mux with default settings
+//   - [NewServeMuxWith] creates a mux with custom settings
 //   - [ServeMux.Use] registers middleware (must be called before Handle)
 //   - [ServeMux.Handle] and [ServeMux.HandleFunc] register routes
 //   - [ServeMux.Reverse] generates URLs for named routes
@@ -163,14 +128,14 @@
 // bhttp handlers can be converted to standard http.Handlers for use with
 // any router or server:
 //
-//	handler := bhttp.HandlerFunc[context.Context](myHandler)
-//	bare := bhttp.ToBare(handler, bhttp.StdContextInit)
+//	handler := bhttp.HandlerFunc(myHandler)
+//	bare := bhttp.ToBare(handler)
 //	stdHandler := bhttp.ToStd(bare, bufferLimit, logger)
 //
 // The conversion chain is:
 //
-//	Handler[C] → BareHandler → http.Handler
+//	Handler → BareHandler → http.Handler
 //
-// [ToBare] applies the context initializer, [ToStd] wraps with buffering
+// [ToBare] extracts the context from the request, [ToStd] wraps with buffering
 // and error handling.
 package bhttp

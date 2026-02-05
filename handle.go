@@ -7,9 +7,6 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-// Context constraint for "leaf" nodes.
-type Context interface{ context.Context }
-
 // ResponseWriter implements the http.ResponseWriter but the underlying bytes are buffered. This allows
 // middleware to reset the writer and formulate a completely new response.
 type ResponseWriter interface {
@@ -19,50 +16,39 @@ type ResponseWriter interface {
 	FlushBuffer() error
 }
 
-// Handler mirrors http.Handler but it supports typed context values and a buffered response allow returning error.
-type Handler[C Context] interface {
-	ServeBHTTP(ctx C, w ResponseWriter, r *http.Request) error
+// Handler mirrors http.Handler but with a buffered response and error return.
+type Handler interface {
+	ServeBHTTP(ctx context.Context, w ResponseWriter, r *http.Request) error
 }
 
-// HandlerFunc allow casting a function to imple [Handler].
-type HandlerFunc[C Context] func(C, ResponseWriter, *http.Request) error
+// HandlerFunc allows casting a function to implement [Handler].
+type HandlerFunc func(context.Context, ResponseWriter, *http.Request) error
 
 // ServeBHTTP implements the [Handler] interface.
-func (f HandlerFunc[C]) ServeBHTTP(ctx C, w ResponseWriter, r *http.Request) error {
+func (f HandlerFunc) ServeBHTTP(ctx context.Context, w ResponseWriter, r *http.Request) error {
 	return f(ctx, w, r)
 }
 
-// BareHandler describes how middleware servers HTTP requests. In this library the signature for
+// BareHandler describes how middleware serves HTTP requests. In this library the signature for
 // handling middleware [BareHandler] is different from the signature of "leaf" handlers: [Handler].
 type BareHandler interface {
 	ServeBareBHTTP(w ResponseWriter, r *http.Request) error
 }
 
-// BareHandlerFunc allow casting a function to an implementation of [Handler].
+// BareHandlerFunc allows casting a function to an implementation of [BareHandler].
 type BareHandlerFunc func(ResponseWriter, *http.Request) error
 
-// ServeBareBHTTP implements the [Handler] interface.
+// ServeBareBHTTP implements the [BareHandler] interface.
 func (f BareHandlerFunc) ServeBareBHTTP(w ResponseWriter, r *http.Request) error {
 	return f(w, r)
 }
 
-// ContextInitFunc describe functions that turn requests into a typed context for our "leaf" handlers.
-type ContextInitFunc[C Context] func(*http.Request) (C, error)
-
-// ToBare converts a typed context handler 'h' into a bare buffered handler.
-func ToBare[C Context](h Handler[C], contextInit ContextInitFunc[C]) BareHandler {
+// ToBare converts a handler into a bare buffered handler.
+func ToBare(h Handler) BareHandler {
 	return BareHandlerFunc(func(w ResponseWriter, r *http.Request) error {
-		ctx, err := contextInit(r)
-		if err != nil {
-			return errors.Wrap(err, "init typed context from standard request context")
-		}
-
-		return h.ServeBHTTP(ctx, w, r)
+		return h.ServeBHTTP(r.Context(), w, r)
 	})
 }
-
-// StdContextInit is a context initializer that just pulls the context from the http.Request.
-func StdContextInit(r *http.Request) (context.Context, error) { return r.Context(), nil }
 
 // ToStd converts a bare handler into a standard library http.Handler. The implementation
 // creates a buffered response writer and flushes it implicitly after serving the request.

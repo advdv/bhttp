@@ -44,9 +44,9 @@ func NewHandlers(
 }
 
 // TestContext tests Log, Span, Env, LWA, Reverse via GET /context.
-func (h *Handlers) TestContext(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+func (h *Handlers) TestContext(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	env := h.rt.Env()
-	lwa := ctx.LWA()
+	lwa := blwa.LWA(ctx)
 
 	itemURL, err := h.rt.Reverse("get-item", "test-123")
 	if err != nil {
@@ -54,8 +54,8 @@ func (h *Handlers) TestContext(ctx *blwa.Context, w bhttp.ResponseWriter, r *htt
 		return err
 	}
 
-	ctx.Span().AddEvent("context-test")
-	ctx.Log().Info("testing context features")
+	blwa.Span(ctx).AddEvent("context-test")
+	blwa.Log(ctx).Info("testing context features")
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(map[string]any{
@@ -65,15 +65,15 @@ func (h *Handlers) TestContext(ctx *blwa.Context, w bhttp.ResponseWriter, r *htt
 			"queue":        env.QueueURL,
 			"service_name": env.ServiceName,
 		},
-		"span_valid":   ctx.Span().SpanContext().IsValid(),
+		"span_valid":   blwa.Span(ctx).SpanContext().IsValid(),
 		"lwa_nil":      lwa == nil,
 		"reversed_url": itemURL,
 	})
 }
 
 // TestAWS tests all AWS clients (now directly injected) via GET /aws.
-func (h *Handlers) TestAWS(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
-	ctx.Log().Info("testing AWS clients")
+func (h *Handlers) TestAWS(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	blwa.Log(ctx).Info("testing AWS clients")
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(map[string]bool{
@@ -84,7 +84,7 @@ func (h *Handlers) TestAWS(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Re
 }
 
 // CreateItem tests request body, logging with env via POST /items.
-func (h *Handlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+func (h *Handlers) CreateItem(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	env := h.rt.Env()
 
 	var body map[string]any
@@ -93,8 +93,8 @@ func (h *Handlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http
 		return nil
 	}
 
-	ctx.Span().AddEvent("creating-item")
-	ctx.Log().Info("creating item")
+	blwa.Span(ctx).AddEvent("creating-item")
+	blwa.Log(ctx).Info("creating item")
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -106,13 +106,13 @@ func (h *Handlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http
 }
 
 // GetItem tests path params with context and reverse via GET /items/{id}.
-func (h *Handlers) GetItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+func (h *Handlers) GetItem(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
 	env := h.rt.Env()
 
 	selfURL, _ := h.rt.Reverse("get-item", id)
 
-	ctx.Log().Info("getting item")
+	blwa.Log(ctx).Info("getting item")
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(map[string]any{

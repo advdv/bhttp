@@ -39,7 +39,7 @@ func NewMultiRegionHandlers(
 	return &MultiRegionHandlers{rt: rt, dynamo: dynamo, ssm: ssm, s3: s3}
 }
 
-func (h *MultiRegionHandlers) TestClients(_ *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+func (h *MultiRegionHandlers) TestClients(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(map[string]any{
 		"dynamo_exists":   h.dynamo != nil,
@@ -62,7 +62,7 @@ func TestAWSClient_LocalRegion(t *testing.T) {
 	app := blwa.NewApp[TestEnv](
 		func(m *blwa.Mux, h *LocalOnlyHandlers) {
 			injected = h
-			m.HandleFunc("GET /test", func(_ *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 				w.Header().Set("Content-Type", "application/json")
 				return json.NewEncoder(w).Encode(map[string]bool{"dynamo": h.dynamo != nil})
 			})
@@ -129,7 +129,7 @@ func TestAWSClient_PrimaryRegion(t *testing.T) {
 	app := blwa.NewApp[TestEnv](
 		func(m *blwa.Mux, h *PrimaryOnlyHandlers) {
 			injected = h
-			m.HandleFunc("GET /test", func(_ *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 				w.Header().Set("Content-Type", "application/json")
 				return json.NewEncoder(w).Encode(map[string]bool{
 					"ssm": h.ssm != nil && h.ssm.Client != nil,
@@ -197,7 +197,7 @@ func TestAWSClient_FixedRegion(t *testing.T) {
 	app := blwa.NewApp[TestEnv](
 		func(m *blwa.Mux, h *FixedRegionHandlers) {
 			injected = h
-			m.HandleFunc("GET /test", func(_ *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 				w.Header().Set("Content-Type", "application/json")
 				return json.NewEncoder(w).Encode(map[string]any{
 					"s3":     h.s3 != nil && h.s3.Client != nil,

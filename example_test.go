@@ -144,31 +144,17 @@ func ExampleResponseWriter_Reset() {
 	// Failure: 500
 }
 
-// AppContext demonstrates a typed context for request-scoped data.
-type AppContext struct {
-	context.Context
-	RequestID string
-}
-
-func ExampleNewCustomServeMux() {
-	// Context initializer extracts request-scoped data
-	initContext := func(r *http.Request) (AppContext, error) {
-		return AppContext{
-			Context:   r.Context(),
-			RequestID: r.Header.Get("X-Request-ID"),
-		}, nil
-	}
-
-	mux := bhttp.NewCustomServeMux(
-		initContext,
+func ExampleNewServeMuxWith() {
+	mux := bhttp.NewServeMuxWith(
 		-1, // no buffer limit
 		bhttp.NewTestLogger(nil),
 		http.NewServeMux(),
 		bhttp.NewReverser(),
 	)
 
-	mux.HandleFunc("GET /info", func(ctx AppContext, w bhttp.ResponseWriter, r *http.Request) error {
-		fmt.Fprintf(w, "Request ID: %s", ctx.RequestID)
+	mux.HandleFunc("GET /info", func(_ context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+		reqID := r.Header.Get("X-Request-ID")
+		fmt.Fprintf(w, "Request ID: %s", reqID)
 		return nil
 	})
 

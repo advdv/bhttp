@@ -1,6 +1,7 @@
 package blwa_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -33,12 +34,11 @@ func NewItemHandlers(rt *blwa.Runtime[Env], dynamo *dynamodb.Client) *ItemHandle
 }
 
 // ListItems returns all items from the database.
-// Demonstrates: ctx.Log() method for trace-correlated logging, Runtime.Env for configuration access.
-func (h *ItemHandlers) ListItems(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+// Demonstrates: blwa.Log() for trace-correlated logging, Runtime.Env for configuration access.
+func (h *ItemHandlers) ListItems(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 	env := h.rt.Env()
 
-	// Use method syntax on ctx for convenience
-	ctx.Log().Info("listing items from table",
+	blwa.Log(ctx).Info("listing items from table",
 		zap.String("table", env.MainTableName))
 
 	w.Header().Set("Content-Type", "application/json")
@@ -49,12 +49,11 @@ func (h *ItemHandlers) ListItems(ctx *blwa.Context, w bhttp.ResponseWriter, r *h
 }
 
 // GetItem returns a single item by ID.
-// Demonstrates: ctx.Span() method for adding trace events, Runtime.Reverse for URL generation.
-func (h *ItemHandlers) GetItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+// Demonstrates: blwa.Span() for adding trace events, Runtime.Reverse for URL generation.
+func (h *ItemHandlers) GetItem(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
 
-	// Use method syntax on ctx for convenience
-	ctx.Span().AddEvent("fetching item")
+	blwa.Span(ctx).AddEvent("fetching item")
 
 	selfURL, _ := h.rt.Reverse("get-item", id)
 
@@ -66,12 +65,11 @@ func (h *ItemHandlers) GetItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *htt
 }
 
 // CreateItem creates a new item in DynamoDB.
-// Demonstrates: Direct AWS client injection, ctx.LWA() for Lambda context.
-func (h *ItemHandlers) CreateItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+// Demonstrates: Direct AWS client injection, blwa.LWA() for Lambda context.
+func (h *ItemHandlers) CreateItem(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 	// Check if running in Lambda (LWA returns nil outside Lambda).
-	// Use method syntax on ctx for convenience
-	if lwa := ctx.LWA(); lwa != nil {
-		ctx.Log().Info("lambda context",
+	if lwa := blwa.LWA(ctx); lwa != nil {
+		blwa.Log(ctx).Info("lambda context",
 			zap.String("request_id", lwa.RequestID),
 			zap.Duration("remaining", lwa.RemainingTime()),
 		)
@@ -119,8 +117,8 @@ func NewConfigHandlers(rt *blwa.Runtime[Env], ssm *blwa.Primary[ssm.Client]) *Co
 
 // GetConfig fetches configuration from the primary region SSM Parameter Store.
 // Demonstrates: Primary region client injection using Primary[T] wrapper.
-func (h *ConfigHandlers) GetConfig(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
-	ctx.Log().Info("fetching config from primary region SSM")
+func (h *ConfigHandlers) GetConfig(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	blwa.Log(ctx).Info("fetching config from primary region SSM")
 
 	// Access the SSM client via the Primary wrapper
 	_ = h.ssm.Client
@@ -161,8 +159,8 @@ func NewUploadHandlers(rt *blwa.Runtime[Env], s3 *blwa.InRegion[s3.Client]) *Upl
 
 // Upload uploads a file to a fixed-region S3 bucket.
 // Demonstrates: Fixed region client injection using InRegion[T] wrapper.
-func (h *UploadHandlers) Upload(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
-	ctx.Log().Info("uploading to fixed region S3",
+func (h *UploadHandlers) Upload(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	blwa.Log(ctx).Info("uploading to fixed region S3",
 		zap.String("region", h.s3.Region))
 
 	// Access the S3 client via the InRegion wrapper
@@ -204,7 +202,7 @@ func NewSecretHandlers(rt *blwa.Runtime[Env]) *SecretHandlers {
 
 // Connect demonstrates retrieving secrets from AWS Secrets Manager.
 // Demonstrates: Runtime.Secret for raw string secrets and JSON path extraction.
-func (h *SecretHandlers) Connect(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
+func (h *SecretHandlers) Connect(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
 	// Raw string secret - returns the entire secret value
 	apiKey, err := h.rt.Secret(ctx, "my-api-key-secret")
 	if err != nil {
@@ -218,7 +216,7 @@ func (h *SecretHandlers) Connect(ctx *blwa.Context, w bhttp.ResponseWriter, r *h
 		return err
 	}
 
-	ctx.Log().Info("retrieved secrets",
+	blwa.Log(ctx).Info("retrieved secrets",
 		zap.Int("api_key_len", len(apiKey)),
 		zap.Int("password_len", len(dbPassword)))
 
@@ -258,8 +256,8 @@ func NewMultiHandlers(
 	return &MultiHandlers{rt: rt, dynamo: dynamo, ssm: ssm, s3: s3}
 }
 
-func (h *MultiHandlers) Process(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
-	ctx.Log().Info("processing with multi-region clients",
+func (h *MultiHandlers) Process(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	blwa.Log(ctx).Info("processing with multi-region clients",
 		zap.String("s3_region", h.s3.Region))
 
 	// Use all three clients

@@ -84,30 +84,25 @@
 //
 // # Context
 //
-// Handlers receive [*Context], which embeds context.Context and provides method access
-// to request-scoped values. Both method syntax and package functions are supported:
+// Handlers receive a standard context.Context. Use the package-level functions
+// to access request-scoped values:
 //
-//	func (h *Handlers) GetItem(ctx *blwa.Context, w bhttp.ResponseWriter, r *http.Request) error {
-//	    // Method syntax (preferred)
-//	    ctx.Log().Info("fetching item")
-//	    ctx.Span().AddEvent("fetching item")
-//	    if lwa := ctx.LWA(); lwa != nil {
-//	        // running in Lambda
-//	    }
-//
-//	    // Package function syntax (equivalent)
+//	func (h *Handlers) GetItem(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
 //	    blwa.Log(ctx).Info("fetching item")
 //	    blwa.Span(ctx).AddEvent("fetching item")
+//	    if lwa := blwa.LWA(ctx); lwa != nil {
+//	        // running in Lambda
+//	    }
 //
 //	    env := h.rt.Env() // from Runtime, not context
 //	    // ...
 //	}
 //
-// Available methods and functions:
+// Available functions:
 //
-//   - [Context.Log] / [Log] - trace-correlated zap logger
-//   - [Context.Span] / [Span] - current OpenTelemetry span for custom instrumentation
-//   - [Context.LWA] / [LWA] - Lambda execution context (request ID, deadline, etc.)
+//   - [Log] - trace-correlated zap logger
+//   - [Span] - current OpenTelemetry span for custom instrumentation
+//   - [LWA] - Lambda execution context (request ID, deadline, etc.)
 //
 // # Tracing
 //
