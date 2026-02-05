@@ -30,6 +30,10 @@ func handleBasic(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) e
 		return bhttp.NewError(bhttp.CodeBadRequest, errors.New("foo"))
 	}
 
+	if r.URL.Path == "/trigger-deadline-exceeded" {
+		return context.DeadlineExceeded
+	}
+
 	return nil
 }
 
@@ -74,6 +78,21 @@ func TestHandleDefaultBError(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Empty(t, rec.Header().Get("Is-Bar"))
 	require.Equal(t, `Bad Request: foo`+"\n", rec.Body.String())
+	require.Equal(t, int64(0), logs.NumLogUnhandledServeError)
+}
+
+func TestHandleDeadlineExceeded(t *testing.T) {
+	logs := bhttp.NewTestLogger(t)
+	hdlr := bhttp.HandlerFunc(handleBasic)
+	bhdlr := bhttp.ToBare(hdlr)
+	shdrl := bhttp.ToStd(bhdlr, -1, logs)
+
+	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/trigger-deadline-exceeded", nil)
+	shdrl.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusGatewayTimeout, rec.Code)
+	require.Empty(t, rec.Header().Get("Is-Bar"))
+	require.Equal(t, `Gateway Timeout`+"\n", rec.Body.String())
 	require.Equal(t, int64(0), logs.NumLogUnhandledServeError)
 }
 

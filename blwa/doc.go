@@ -32,6 +32,7 @@
 //	| AWS_REGION                    | Yes      | -       | AWS region (set automatically by Lambda runtime)     |
 //	| BW_SERVICE_NAME               | Yes      | -       | Service name for logging and tracing                 |
 //	| BW_PRIMARY_REGION             | Yes      | -       | Primary deployment region (injected by CDK)          |
+//	| BW_LAMBDA_TIMEOUT             | Yes      | -       | Lambda function timeout (e.g., "30s", "5m")          |
 //	| BW_LOG_LEVEL                  | No       | info    | Log level (debug, info, warn, error)                 |
 //	| BW_OTEL_EXPORTER              | No       | stdout  | Trace exporter: "stdout" or "xrayudp"                |
 //	| BW_GATEWAY_ACCESS_LOG_GROUP   | No       | -       | API Gateway access log group for X-Ray correlation   |
@@ -203,6 +204,24 @@
 //	) *Handlers {
 //	    return &Handlers{dynamo: dynamo, ssm: ssm, s3: s3}
 //	}
+//
+// # Timeouts
+//
+// HTTP server timeouts are configured based on BW_LAMBDA_TIMEOUT to match the
+// Lambda function's execution limit. This differs from traditional internet-facing
+// servers because Lambda Web Adapter acts as a local proxy—the HTTP server is not
+// directly exposed to untrusted clients.
+//
+// A two-tier timeout strategy is used:
+//
+//  1. Server-level timeouts: Based on BW_LAMBDA_TIMEOUT, these act as outer bounds.
+//  2. Per-request deadline: Derived from the Lambda invocation deadline (via
+//     x-amzn-lambda-context header), this takes precedence when available.
+//
+// The per-request deadline includes a 500ms buffer for cleanup and error responses.
+// Use [RequestDeadline] and [RequestRemainingTime] to check the effective deadline.
+//
+// See timeout.go for detailed documentation on the timeout strategy and rationale.
 //
 // # Health Checks
 //

@@ -56,6 +56,7 @@ func TestAWS_RetrievesCorrectClient(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "true")
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 	app := blwa.NewApp[regionTestEnv](
 		func(m *blwa.Mux, h *RegionHandlers) {
@@ -124,6 +125,7 @@ func TestAWS_VerifiesRegionInConfig(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "true")
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 	var capturedLocalRegion, capturedPrimaryRegion, capturedFixedRegion string
 

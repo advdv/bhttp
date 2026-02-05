@@ -119,6 +119,7 @@ func TestAWSClient_PrimaryRegion(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
 	t.Setenv("MAIN_SECRET", "test-secret")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 	type PrimaryOnlyHandlers struct {
 		ssm *blwa.Primary[ssm.Client]
@@ -187,6 +188,7 @@ func TestAWSClient_FixedRegion(t *testing.T) {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 	type FixedRegionHandlers struct {
 		s3 *blwa.InRegion[s3.Client]
@@ -262,6 +264,7 @@ func TestAWSClient_AllRegionTypes(t *testing.T) {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 	app := blwa.NewApp[TestEnv](
 		func(m *blwa.Mux, h *MultiRegionHandlers) {

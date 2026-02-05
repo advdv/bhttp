@@ -136,6 +136,7 @@ func setupTestEnv(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("MAIN_SECRET", "test-secret")
 	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 }
 
 func doGet(ctx context.Context, client *http.Client, url string) (*http.Response, error) {

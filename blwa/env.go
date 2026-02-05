@@ -1,6 +1,8 @@
 package blwa
 
 import (
+	"time"
+
 	"github.com/caarlos0/env/v11"
 	"github.com/cockroachdb/errors"
 	"go.uber.org/zap/zapcore"
@@ -17,6 +19,7 @@ type Environment interface {
 	awsRegion() string
 	primaryRegion() string
 	gatewayAccessLogGroup() string
+	lambdaTimeout() time.Duration
 }
 
 // BaseEnvironment contains the required LWA environment variables.
@@ -33,6 +36,9 @@ type BaseEnvironment struct {
 	// access logs. When set, traces include this log group for X-Ray log
 	// correlation. Injected automatically by bwcdkrestgateway.
 	GatewayAccessLogGroup string `env:"BW_GATEWAY_ACCESS_LOG_GROUP"`
+	// LambdaTimeout is the configured Lambda function timeout. Used to configure
+	// HTTP server timeouts. Should match the Lambda function's timeout setting.
+	LambdaTimeout time.Duration `env:"BW_LAMBDA_TIMEOUT,required"`
 }
 
 func (e BaseEnvironment) port() int {
@@ -65,6 +71,10 @@ func (e BaseEnvironment) primaryRegion() string {
 
 func (e BaseEnvironment) gatewayAccessLogGroup() string {
 	return e.GatewayAccessLogGroup
+}
+
+func (e BaseEnvironment) lambdaTimeout() time.Duration {
+	return e.LambdaTimeout
 }
 
 var _ Environment = BaseEnvironment{}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/advdv/bhttp"
 	"go.opentelemetry.io/otel/propagation"
@@ -37,6 +36,8 @@ func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
 
 	params.Mux.Use(withRequestDep(d))
 	params.Mux.Use(withLWAContext())
+	// Apply per-request deadline from Lambda context (takes precedence over server timeouts).
+	params.Mux.Use(WithRequestDeadline(DefaultDeadlineBuffer))
 
 	// Register the health check endpoint at the path specified by AWS_LWA_READINESS_CHECK_PATH.
 	// This endpoint is called by Lambda Web Adapter to determine if the app is ready.
@@ -55,10 +56,18 @@ func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
 	// Add tracing with explicit provider injection (no globals).
 	handler := withTracing(params.TracerProv, params.Propagator, params.Env.serviceName(), healthPath)(params.Mux)
 
+	// Configure server timeouts based on Lambda function timeout.
+	// These serve as outer bounds; per-request deadlines from LWAContext take precedence.
+	tc := TimeoutConfig{LambdaTimeout: params.Env.lambdaTimeout()}
+	readHeaderTimeout, readTimeout, writeTimeout, idleTimeout := tc.ServerTimeouts()
+
 	return &http.Server{
 		Addr:              fmt.Sprintf(":%d", params.Env.port()),
 		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 }
 

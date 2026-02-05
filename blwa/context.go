@@ -115,6 +115,12 @@ func Span(ctx context.Context) trace.Span {
 	return trace.SpanFromContext(ctx)
 }
 
+// TestSetLWAContext injects an LWAContext into the context for testing purposes.
+// This should only be used in tests to simulate Lambda execution environment.
+func TestSetLWAContext(ctx context.Context, lc *LWAContext) context.Context {
+	return context.WithValue(ctx, ctxKeyLWAContext, lc)
+}
+
 // traceFields extracts trace_id and span_id from the context for log correlation.
 func traceFields(ctx context.Context) []zap.Field {
 	span := trace.SpanFromContext(ctx)

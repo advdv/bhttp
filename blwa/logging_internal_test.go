@@ -2,6 +2,7 @@ package blwa
 
 import (
 	"testing"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 )
@@ -24,6 +25,7 @@ func (e testEnv) otelExporter() string {
 func (e testEnv) awsRegion() string             { return "us-east-1" }
 func (e testEnv) primaryRegion() string         { return "us-east-1" }
 func (e testEnv) gatewayAccessLogGroup() string { return "" }
+func (e testEnv) lambdaTimeout() time.Duration  { return 30 * time.Second }
 
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
@@ -89,6 +91,7 @@ func TestBaseEnvironment_LogLevel_Parsing(t *testing.T) {
 			t.Setenv("BW_LOG_LEVEL", tt.envValue)
 			t.Setenv("AWS_REGION", "us-east-1")
 			t.Setenv("BW_PRIMARY_REGION", "us-east-1")
+			t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 			parse := ParseEnv[BaseEnvironment]()
 			env, err := parse()
@@ -109,6 +112,7 @@ func TestBaseEnvironment_LogLevel_Default(t *testing.T) {
 	t.Setenv("AWS_LWA_READINESS_CHECK_PATH", "/health")
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("BW_PRIMARY_REGION", "us-east-1")
+	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
 
 	parse := ParseEnv[BaseEnvironment]()
 	env, err := parse()

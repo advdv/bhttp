@@ -60,11 +60,17 @@ func ToStd(h BareHandler, bufLimit int, logs Logger) http.Handler {
 		if err := h.ServeBareBHTTP(bresp, req); err != nil {
 			bresp.Reset() // reset the buffer
 
-			// if the code throws a bhttp.Error we use that code.
 			var berr *Error
-			if errors.As(err, &berr) {
+			switch {
+			case errors.As(err, &berr):
 				http.Error(bresp, berr.Error(), int(berr.code))
-			} else {
+			case errors.Is(err, context.DeadlineExceeded):
+				// Context deadline exceeded maps to 504 Gateway Timeout.
+				// This typically occurs when the request exceeds the Lambda timeout.
+				http.Error(bresp,
+					http.StatusText(http.StatusGatewayTimeout),
+					http.StatusGatewayTimeout)
+			default:
 				logs.LogUnhandledServeError(err)
 
 				// Else, we assume a server error don't want the client to end up with a white screen so
