@@ -36,6 +36,7 @@
 //	| BW_LOG_LEVEL                  | No       | info    | Log level (debug, info, warn, error)                 |
 //	| BW_OTEL_EXPORTER              | No       | stdout  | Trace exporter: "stdout" or "xrayudp"                |
 //	| BW_GATEWAY_ACCESS_LOG_GROUP   | No       | -       | API Gateway access log group for X-Ray correlation   |
+//	| AWS_LWA_ERROR_STATUS_CODES    | Yes      | -       | HTTP status codes that indicate Lambda errors        |
 //
 // The AWS_LWA_* variables match the official Lambda Web Adapter configuration,
 // so values you set for LWA are automatically picked up by blwa.
@@ -222,6 +223,45 @@
 // Use [RequestDeadline] and [RequestRemainingTime] to check the effective deadline.
 //
 // See timeout.go for detailed documentation on the timeout strategy and rationale.
+//
+// # Error Status Codes
+//
+// AWS_LWA_ERROR_STATUS_CODES tells Lambda Web Adapter which HTTP response codes
+// indicate a Lambda function error. This is critical for correct error handling
+// in event-driven architectures:
+//
+// Without proper error status codes configured:
+//   - SQS triggers: Failed messages are deleted instead of returned to the queue,
+//     causing silent data loss. Messages that should be retried are lost forever.
+//   - SNS/EventBridge: Retries don't trigger because Lambda reports success.
+//   - API Gateway: CloudWatch Lambda error metrics are inaccurate.
+//
+// blwa requires this variable and validates it at startup. By default, the following
+// status codes must be included:
+//
+//   - 500 (Internal Server Error): Catches unhandled exceptions and general errors.
+//     Without this, application crashes would be treated as successful responses.
+//   - 504 (Gateway Timeout): Catches timeout errors from [WithRequestDeadline].
+//     When a request exceeds the Lambda deadline, the handler returns 504 to signal
+//     that the function ran out of time. This ensures timeout failures trigger retries.
+//   - 507 (Insufficient Storage): Catches response buffer overflow errors. When a
+//     handler generates a response larger than the configured buffer limit, bhttp
+//     returns 507. This helps identify handlers that need larger limits or streaming.
+//
+// The recommended configuration covers all server errors:
+//
+//	AWS_LWA_ERROR_STATUS_CODES=500-599
+//
+// The format supports comma-separated values and ranges:
+//   - Single codes: "500,502,504"
+//   - Ranges: "500-599"
+//   - Mixed: "500,502-504,599"
+//
+// To customize which codes are required, use [ParseEnvWithRequiredStatusCodes]:
+//
+//	blwa.NewApp[Env](routes,
+//	    blwa.WithEnvParser(blwa.ParseEnvWithRequiredStatusCodes[Env](500, 502, 503, 504)),
+//	)
 //
 // # Health Checks
 //

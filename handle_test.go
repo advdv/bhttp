@@ -34,6 +34,10 @@ func handleBasic(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) e
 		return context.DeadlineExceeded
 	}
 
+	if r.URL.Path == "/trigger-buffer-full" {
+		return bhttp.ErrBufferFull
+	}
+
 	return nil
 }
 
@@ -93,6 +97,21 @@ func TestHandleDeadlineExceeded(t *testing.T) {
 	require.Equal(t, http.StatusGatewayTimeout, rec.Code)
 	require.Empty(t, rec.Header().Get("Is-Bar"))
 	require.Equal(t, `Gateway Timeout`+"\n", rec.Body.String())
+	require.Equal(t, int64(0), logs.NumLogUnhandledServeError)
+}
+
+func TestHandleBufferFull(t *testing.T) {
+	logs := bhttp.NewTestLogger(t)
+	hdlr := bhttp.HandlerFunc(handleBasic)
+	bhdlr := bhttp.ToBare(hdlr)
+	shdrl := bhttp.ToStd(bhdlr, -1, logs)
+
+	rec, req := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/trigger-buffer-full", nil)
+	shdrl.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusInsufficientStorage, rec.Code)
+	require.Empty(t, rec.Header().Get("Is-Bar"))
+	require.Equal(t, "response body exceeds buffer limit\n", rec.Body.String())
 	require.Equal(t, int64(0), logs.NumLogUnhandledServeError)
 }
 

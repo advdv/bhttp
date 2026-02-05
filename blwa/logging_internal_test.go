@@ -26,6 +26,7 @@ func (e testEnv) awsRegion() string             { return "us-east-1" }
 func (e testEnv) primaryRegion() string         { return "us-east-1" }
 func (e testEnv) gatewayAccessLogGroup() string { return "" }
 func (e testEnv) lambdaTimeout() time.Duration  { return 30 * time.Second }
+func (e testEnv) errorStatusCodes() string      { return "500-599" }
 
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
@@ -92,6 +93,7 @@ func TestBaseEnvironment_LogLevel_Parsing(t *testing.T) {
 			t.Setenv("AWS_REGION", "us-east-1")
 			t.Setenv("BW_PRIMARY_REGION", "us-east-1")
 			t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
+			t.Setenv("AWS_LWA_ERROR_STATUS_CODES", "500-599")
 
 			parse := ParseEnv[BaseEnvironment]()
 			env, err := parse()
@@ -113,6 +115,7 @@ func TestBaseEnvironment_LogLevel_Default(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("BW_PRIMARY_REGION", "us-east-1")
 	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
+	t.Setenv("AWS_LWA_ERROR_STATUS_CODES", "500-599")
 
 	parse := ParseEnv[BaseEnvironment]()
 	env, err := parse()

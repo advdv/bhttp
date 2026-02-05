@@ -70,6 +70,13 @@ func ToStd(h BareHandler, bufLimit int, logs Logger) http.Handler {
 				http.Error(bresp,
 					http.StatusText(http.StatusGatewayTimeout),
 					http.StatusGatewayTimeout)
+			case errors.Is(err, ErrBufferFull):
+				// Response buffer exceeded the configured limit. This indicates the handler
+				// is generating a response larger than allowed, which is a server-side issue.
+				// 507 Insufficient Storage signals the server cannot store the representation.
+				http.Error(bresp,
+					"response body exceeds buffer limit",
+					http.StatusInsufficientStorage)
 			default:
 				logs.LogUnhandledServeError(err)
 
