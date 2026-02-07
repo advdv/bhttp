@@ -3,6 +3,9 @@ package blwa
 import (
 	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"go.uber.org/fx"
@@ -73,22 +76,8 @@ func WithHealthHandler(h func(http.ResponseWriter, *http.Request)) Option {
 	}
 }
 
-// NewApp creates a batteries-included app with dependency injection.
-//
-// The routing function can request any types that are provided via fx options.
-// At minimum, it should accept *Mux for routing.
-//
-// Example:
-//
-//	blwa.NewApp[Env](func(m *blwa.Mux, h *Handlers) {
-//	    m.HandleFunc("GET /items", h.ListItems, "list-items")
-//	},
-//	    blwa.WithAWSClient(func(cfg aws.Config) *dynamodb.Client {
-//	        return dynamodb.NewFromConfig(cfg)
-//	    }),
-//	    blwa.WithFx(fx.Provide(NewHandlers)),
-//	).Run()
-func NewApp[E Environment](routing any, opts ...Option) *App {
+// Options builds the []fx.Option used by both NewApp and blwatest.New.
+func Options[E Environment](routing any, opts ...Option) []fx.Option {
 	var cfg AppConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -117,26 +106,49 @@ func NewApp[E Environment](routing any, opts ...Option) *App {
 	}...)
 
 	baseOpts = append(baseOpts, cfg.FxOptions...)
+	return baseOpts
+}
+
+// NewApp creates a batteries-included app with dependency injection.
+//
+// The routing function can request any types that are provided via fx options.
+// At minimum, it should accept *Mux for routing.
+//
+// Example:
+//
+//	blwa.NewApp[Env](func(m *blwa.Mux, h *Handlers) {
+//	    m.HandleFunc("GET /items", h.ListItems, "list-items")
+//	},
+//	    blwa.WithAWSClient(func(cfg aws.Config) *dynamodb.Client {
+//	        return dynamodb.NewFromConfig(cfg)
+//	    }),
+//	    blwa.WithFx(fx.Provide(NewHandlers)),
+//	).Run()
+func NewApp[E Environment](routing any, opts ...Option) *App {
 	return &App{
-		app: fx.New(baseOpts...),
+		app: fx.New(Options[E](routing, opts...)...),
 	}
 }
 
-// Run starts the application and blocks until interrupted.
+// Run starts the application and blocks until SIGINT or SIGTERM is received,
+// then gracefully shuts down.
 func (a *App) Run() {
-	a.app.Run()
-}
-
-// Start starts the application with the given context.
-func (a *App) Start(ctx context.Context) error {
-	if err := a.app.Start(ctx); err != nil {
-		return err
+	startCtx, startCancel := context.WithTimeout(context.Background(), a.app.StartTimeout())
+	if err := a.app.Start(startCtx); err != nil {
+		startCancel()
+		os.Exit(1)
 	}
+	startCancel()
 
-	<-ctx.Done()
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	<-sig
 
-	stopCtx, cancel := context.WithTimeout(ctx, a.app.StopTimeout())
-	defer cancel()
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), a.app.StopTimeout())
+	err := a.app.Stop(stopCtx)
+	stopCancel()
 
-	return a.app.Stop(stopCtx)
+	if err != nil {
+		os.Exit(1)
+	}
 }

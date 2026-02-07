@@ -9,6 +9,7 @@ import (
 
 	"github.com/advdv/bhttp"
 	"github.com/advdv/bhttp/blwa"
+	"github.com/advdv/bhttp/blwa/blwatest"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -16,42 +17,8 @@ import (
 	"go.uber.org/fx"
 )
 
-// MultiRegionHandlers demonstrates all three AWS client injection patterns.
-type MultiRegionHandlers struct {
-	rt *blwa.Runtime[TestEnv]
-
-	// Local region client (default) - injected directly
-	dynamo *dynamodb.Client
-
-	// Primary region client - wrapped with Primary[T]
-	ssm *blwa.Primary[ssm.Client]
-
-	// Fixed region client - wrapped with InRegion[T]
-	s3 *blwa.InRegion[s3.Client]
-}
-
-func NewMultiRegionHandlers(
-	rt *blwa.Runtime[TestEnv],
-	dynamo *dynamodb.Client,
-	ssm *blwa.Primary[ssm.Client],
-	s3 *blwa.InRegion[s3.Client],
-) *MultiRegionHandlers {
-	return &MultiRegionHandlers{rt: rt, dynamo: dynamo, ssm: ssm, s3: s3}
-}
-
-func (h *MultiRegionHandlers) TestClients(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]any{
-		"dynamo_exists":   h.dynamo != nil,
-		"ssm_exists":      h.ssm != nil && h.ssm.Client != nil,
-		"s3_exists":       h.s3 != nil && h.s3.Client != nil,
-		"s3_fixed_region": h.s3.Region,
-	})
-}
-
 func TestAWSClient_LocalRegion(t *testing.T) {
-	setupTestEnv(t)
-	t.Setenv("AWS_LWA_PORT", "18087") // Use unique port to avoid collision with other tests
+	setTestEnvForTestEnv(t, 18087)
 
 	type LocalOnlyHandlers struct {
 		dynamo *dynamodb.Client
@@ -59,7 +26,7 @@ func TestAWSClient_LocalRegion(t *testing.T) {
 
 	var injected *LocalOnlyHandlers
 
-	app := blwa.NewApp[TestEnv](
+	app := blwatest.New[TestEnv](t,
 		func(m *blwa.Mux, h *LocalOnlyHandlers) {
 			injected = h
 			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
@@ -75,11 +42,8 @@ func TestAWSClient_LocalRegion(t *testing.T) {
 		})),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() { _ = app.Start(ctx) }()
-	time.Sleep(100 * time.Millisecond)
+	app.RequireStart()
+	t.Cleanup(app.RequireStop)
 
 	if injected == nil || injected.dynamo == nil {
 		t.Fatal("dynamo client should be injected")
@@ -101,25 +65,10 @@ func TestAWSClient_LocalRegion(t *testing.T) {
 	if !result["dynamo"] {
 		t.Error("dynamo should be true")
 	}
-
-	cancel()
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestAWSClient_PrimaryRegion(t *testing.T) {
-	t.Setenv("AWS_LWA_PORT", "18082")
-	t.Setenv("BW_SERVICE_NAME", "test-service")
-	t.Setenv("AWS_LWA_READINESS_CHECK_PATH", "/ready")
-	t.Setenv("MAIN_TABLE_NAME", "test-table")
-	t.Setenv("BUCKET_NAME", "test-bucket")
-	t.Setenv("QUEUE_URL", "test-queue")
-	t.Setenv("OTEL_SDK_DISABLED", "true")
-	t.Setenv("AWS_ACCESS_KEY_ID", "test")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
-	t.Setenv("MAIN_SECRET", "test-secret")
-	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
+	setTestEnvForTestEnv(t, 18082)
 
 	type PrimaryOnlyHandlers struct {
 		ssm *blwa.Primary[ssm.Client]
@@ -127,7 +76,7 @@ func TestAWSClient_PrimaryRegion(t *testing.T) {
 
 	var injected *PrimaryOnlyHandlers
 
-	app := blwa.NewApp[TestEnv](
+	app := blwatest.New[TestEnv](t,
 		func(m *blwa.Mux, h *PrimaryOnlyHandlers) {
 			injected = h
 			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
@@ -145,11 +94,8 @@ func TestAWSClient_PrimaryRegion(t *testing.T) {
 		})),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() { _ = app.Start(ctx) }()
-	time.Sleep(100 * time.Millisecond)
+	app.RequireStart()
+	t.Cleanup(app.RequireStop)
 
 	if injected == nil || injected.ssm == nil || injected.ssm.Client == nil {
 		t.Fatal("ssm Primary client should be injected")
@@ -171,24 +117,10 @@ func TestAWSClient_PrimaryRegion(t *testing.T) {
 	if !result["ssm"] {
 		t.Error("ssm should be true")
 	}
-
-	cancel()
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestAWSClient_FixedRegion(t *testing.T) {
-	t.Setenv("AWS_LWA_PORT", "18083")
-	t.Setenv("BW_SERVICE_NAME", "test-service")
-	t.Setenv("AWS_LWA_READINESS_CHECK_PATH", "/ready")
-	t.Setenv("MAIN_TABLE_NAME", "test-table")
-	t.Setenv("BUCKET_NAME", "test-bucket")
-	t.Setenv("QUEUE_URL", "test-queue")
-	t.Setenv("OTEL_SDK_DISABLED", "true")
-	t.Setenv("AWS_ACCESS_KEY_ID", "test")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
-	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
+	setTestEnvForTestEnv(t, 18083)
 
 	type FixedRegionHandlers struct {
 		s3 *blwa.InRegion[s3.Client]
@@ -196,7 +128,7 @@ func TestAWSClient_FixedRegion(t *testing.T) {
 
 	var injected *FixedRegionHandlers
 
-	app := blwa.NewApp[TestEnv](
+	app := blwatest.New[TestEnv](t,
 		func(m *blwa.Mux, h *FixedRegionHandlers) {
 			injected = h
 			m.HandleFunc("GET /test", func(_ context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
@@ -215,11 +147,8 @@ func TestAWSClient_FixedRegion(t *testing.T) {
 		})),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() { _ = app.Start(ctx) }()
-	time.Sleep(100 * time.Millisecond)
+	app.RequireStart()
+	t.Cleanup(app.RequireStop)
 
 	if injected == nil || injected.s3 == nil || injected.s3.Client == nil {
 		t.Fatal("s3 InRegion client should be injected")
@@ -247,50 +176,31 @@ func TestAWSClient_FixedRegion(t *testing.T) {
 	if result["region"] != "ap-southeast-1" {
 		t.Errorf("expected region=ap-southeast-1, got %v", result["region"])
 	}
-
-	cancel()
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestAWSClient_AllRegionTypes(t *testing.T) {
-	t.Setenv("AWS_LWA_PORT", "18084")
-	t.Setenv("BW_SERVICE_NAME", "test-service")
-	t.Setenv("AWS_LWA_READINESS_CHECK_PATH", "/ready")
-	t.Setenv("MAIN_TABLE_NAME", "test-table")
-	t.Setenv("BUCKET_NAME", "test-bucket")
-	t.Setenv("QUEUE_URL", "test-queue")
-	t.Setenv("OTEL_SDK_DISABLED", "true")
-	t.Setenv("AWS_ACCESS_KEY_ID", "test")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("BW_PRIMARY_REGION", "eu-west-1")
-	t.Setenv("BW_LAMBDA_TIMEOUT", "30s")
+	setTestEnvForTestEnv(t, 18084)
 
-	app := blwa.NewApp[TestEnv](
+	app := blwatest.New[TestEnv](t,
 		func(m *blwa.Mux, h *MultiRegionHandlers) {
 			m.HandleFunc("GET /test", h.TestClients)
 		},
-		// Local region (default)
 		blwa.WithAWSClient(func(cfg aws.Config) *dynamodb.Client {
 			return dynamodb.NewFromConfig(cfg)
 		}),
-		// Primary region
 		blwa.WithAWSClient(func(cfg aws.Config) *blwa.Primary[ssm.Client] {
 			return blwa.NewPrimary(ssm.NewFromConfig(cfg))
 		}, blwa.ForPrimaryRegion()),
-		// Fixed region
 		blwa.WithAWSClient(func(cfg aws.Config) *blwa.InRegion[s3.Client] {
 			return blwa.NewInRegion(s3.NewFromConfig(cfg), "ap-northeast-1")
 		}, blwa.ForRegion("ap-northeast-1")),
 		blwa.WithFx(fx.Provide(NewMultiRegionHandlers)),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	app.RequireStart()
+	t.Cleanup(app.RequireStop)
 
-	go func() { _ = app.Start(ctx) }()
-	time.Sleep(100 * time.Millisecond)
-
+	ctx := context.Background()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:18084/test", nil)
 	if err != nil {
 		t.Fatalf("create request failed: %v", err)
@@ -318,7 +228,4 @@ func TestAWSClient_AllRegionTypes(t *testing.T) {
 	if result["s3_fixed_region"] != "ap-northeast-1" {
 		t.Errorf("expected s3_fixed_region=ap-northeast-1, got %v", result["s3_fixed_region"])
 	}
-
-	cancel()
-	time.Sleep(100 * time.Millisecond)
 }

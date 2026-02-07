@@ -3,9 +3,11 @@ package blwa
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/advdv/bhttp"
+	"github.com/cockroachdb/errors"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -72,12 +74,19 @@ func NewServer(params ServerParams, cfg ServerConfig) *http.Server {
 }
 
 // startServerHook registers lifecycle hooks for the HTTP server.
+// The listener is bound synchronously in OnStart so that when fx reports
+// the app as started, the port is guaranteed to be accepting connections.
 func startServerHook(lc fx.Lifecycle, server *http.Server, logger *zap.Logger) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("starting server", zap.String("addr", server.Addr))
+			var lc net.ListenConfig
+			ln, err := lc.Listen(ctx, "tcp", server.Addr)
+			if err != nil {
+				return errors.Wrapf(err, "listen on %s", server.Addr)
+			}
+			logger.Info("server listening", zap.String("addr", ln.Addr().String()))
 			go func() {
-				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
 					logger.Error("server error", zap.Error(err))
 				}
 			}()
