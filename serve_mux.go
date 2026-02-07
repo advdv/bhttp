@@ -1,6 +1,7 @@
 package bhttp
 
 import (
+	"context"
 	"log"
 	"net/http"
 )
@@ -46,6 +47,16 @@ func (m *ServeMux) Use(mw ...Middleware) {
 // HandleFunc handles the request given the pattern using a function.
 func (m *ServeMux) HandleFunc(pattern string, handler HandlerFunc, name ...string) {
 	m.Handle(pattern, handler, name...)
+}
+
+// HandleStd registers a standard library [http.Handler] for the given pattern. Middleware
+// registered via [ServeMux.Use] is applied. See the package-level section
+// "Standard library handlers and error ownership" for details on error handling behavior.
+func (m *ServeMux) HandleStd(pattern string, handler http.Handler, name ...string) {
+	m.Handle(pattern, HandlerFunc(func(_ context.Context, w ResponseWriter, r *http.Request) error {
+		handler.ServeHTTP(w, r)
+		return nil
+	}), name...)
 }
 
 // Handle handles the request given a handler.

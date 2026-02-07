@@ -1,12 +1,13 @@
-// Package bhttp provides buffered HTTP response handling with context-first, error-returning handlers.
+// Package bhttp provides buffered HTTP response handling with context-first, error-returning handlers, named routes, and prefix mounting.
 //
 // # Overview
 //
-// bhttp extends the standard library's HTTP handling with three key features:
-// context as the first handler argument for cleaner signatures, handlers that
-// return errors instead of requiring inline error handling, and buffered response
-// writers that allow complete response rewriting on errors. This design enables
-// cleaner error propagation and centralized error responses.
+// bhttp extends the standard library's HTTP handling with four key features:
+// error-returning handlers for clean error propagation, context as the first
+// handler argument, named routes with URL reversing, and prefix-based mounting
+// for composing handler trees. The buffered response writer is a necessary
+// consequence—it allows the framework to discard partial output and generate
+// clean error responses when handlers fail.
 //
 // A minimal example:
 //
@@ -16,8 +17,7 @@
 //	    if err != nil {
 //	        return bhttp.NewError(bhttp.CodeNotFound, err)
 //	    }
-//	    json.NewEncoder(w).Encode(item)
-//	    return nil
+//	    return json.NewEncoder(w).Encode(item)
 //	}, "get-item")
 //
 // # Handler Signature
@@ -112,6 +112,26 @@
 // The [Reverser] component parses standard library route patterns and
 // substitutes path parameters in order.
 //
+// # Mounting
+//
+// Handlers can be mounted under a prefix using [ServeMux.Mount],
+// [ServeMux.MountFunc], [ServeMux.MountBare], or [ServeMux.MountStd]. The
+// mounted handler receives requests with the mount prefix stripped from the
+// path. Middleware registered via [ServeMux.Use] sees the original path; the
+// strip happens after middleware runs.
+//
+//	mux.MountFunc("/api", func(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+//	    // Request to /api/users arrives with r.URL.Path == "/users"
+//	    fmt.Fprintf(w, "api: %s", r.URL.Path)
+//	    return nil
+//	})
+//
+//	// Mount a standard library http.Handler
+//	mux.MountStd("/debug", http.DefaultServeMux)
+//
+// Mount registers both the exact prefix and the subtree (e.g. /api and /api/)
+// on the underlying [http.ServeMux].
+//
 // # ServeMux
 //
 // [ServeMux] combines all components into a complete HTTP multiplexer that
@@ -120,8 +140,27 @@
 //   - [NewServeMux] creates a mux with default settings
 //   - [NewServeMuxWith] creates a mux with custom settings
 //   - [ServeMux.Use] registers middleware (must be called before Handle)
-//   - [ServeMux.Handle] and [ServeMux.HandleFunc] register routes
+//   - [ServeMux.Handle], [ServeMux.HandleFunc], and [ServeMux.HandleStd] register routes
+//   - [ServeMux.Mount], [ServeMux.MountFunc], [ServeMux.MountStd], and [ServeMux.MountBare] mount handlers under a prefix
 //   - [ServeMux.Reverse] generates URLs for named routes
+//
+// # Standard library handlers and error ownership
+//
+// Methods ending in Std ([ServeMux.HandleStd], [ServeMux.MountStd]) accept a standard
+// library [http.Handler] instead of bhttp's error-returning [Handler]. Because
+// [http.Handler.ServeHTTP] has no error return value, these handlers are fully responsible
+// for writing their own error responses (status codes, headers, and body). bhttp's
+// error-to-status-code mapping (as performed by [ToStd]) is not applied: whatever the
+// handler writes is what the client receives.
+//
+// Middleware registered via [ServeMux.Use] still runs before the handler and the response
+// is still buffered through [ResponseWriter], so middleware can inspect or [ResponseWriter.Reset]
+// the response before the buffer is flushed. The handler's writes are otherwise passed
+// through unchanged.
+//
+// This makes the Std variants well suited for integrating third-party or stdlib handlers
+// (e.g. [http.FileServer], pprof, Prometheus metrics) that already manage their own
+// HTTP responses.
 //
 // # Converting to Standard Library
 //

@@ -4,7 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type testEnv struct {
@@ -106,6 +110,49 @@ func TestBaseEnvironment_LogLevel_Parsing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestZapLogger(t *testing.T) {
+	core, logs := observer.New(zapcore.ErrorLevel)
+	logger := newZapBHTTPLogger(zap.New(core))
+
+	t.Run("unhandled serve error", func(t *testing.T) {
+		err := errors.New("test serve error")
+		logger.LogUnhandledServeError(err)
+
+		entries := logs.TakeAll()
+		if len(entries) != 1 {
+			t.Fatalf("expected 1 log entry, got %d", len(entries))
+		}
+		if entries[0].Message != "unhandled server error" {
+			t.Errorf("unexpected message: %s", entries[0].Message)
+		}
+		if entries[0].LoggerName != "bhttp.blwa" {
+			t.Errorf("unexpected logger name: %s", entries[0].LoggerName)
+		}
+		if entries[0].Level != zapcore.ErrorLevel {
+			t.Errorf("unexpected level: %s", entries[0].Level)
+		}
+	})
+
+	t.Run("implicit flush error", func(t *testing.T) {
+		err := errors.New("test flush error")
+		logger.LogImplicitFlushError(err)
+
+		entries := logs.TakeAll()
+		if len(entries) != 1 {
+			t.Fatalf("expected 1 log entry, got %d", len(entries))
+		}
+		if entries[0].Message != "error while flushing implicitly" {
+			t.Errorf("unexpected message: %s", entries[0].Message)
+		}
+		if entries[0].LoggerName != "bhttp.blwa" {
+			t.Errorf("unexpected logger name: %s", entries[0].LoggerName)
+		}
+		if entries[0].Level != zapcore.ErrorLevel {
+			t.Errorf("unexpected level: %s", entries[0].Level)
+		}
+	})
 }
 
 func TestBaseEnvironment_LogLevel_Default(t *testing.T) {
