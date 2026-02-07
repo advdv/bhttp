@@ -299,3 +299,124 @@ func Example_multiRegion() {
 		blwa.WithFx(fx.Provide(NewMultiHandlers)),
 	).Run()
 }
+
+// HTTPClientHandlers demonstrates outbound HTTP requests using Runtime.NewRequest.
+type HTTPClientHandlers struct {
+	rt *blwa.Runtime[Env]
+}
+
+func NewHTTPClientHandlers(rt *blwa.Runtime[Env]) *HTTPClientHandlers {
+	return &HTTPClientHandlers{rt: rt}
+}
+
+// FetchData demonstrates making an outbound HTTP GET with automatic tracing
+// using the fluent requests.Builder API via Runtime.NewRequest.
+func (h *HTTPClientHandlers) FetchData(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	var result map[string]any
+	err := h.rt.NewRequest().
+		BaseURL("https://jsonplaceholder.typicode.com").
+		Pathf("/posts/%d", 1).
+		ToJSON(&result).
+		Fetch(ctx)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(result)
+}
+
+// PostData demonstrates making an outbound HTTP POST with JSON body
+// and automatic tracing via Runtime.NewRequest.
+func (h *HTTPClientHandlers) PostData(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	var result map[string]any
+	err := h.rt.NewRequest().
+		BaseURL("https://jsonplaceholder.typicode.com/posts").
+		BodyJSON(map[string]any{"title": "foo", "body": "bar"}).
+		ToJSON(&result).
+		Fetch(ctx)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(result)
+}
+
+// Example_httpClient demonstrates using Runtime.NewRequest for outbound HTTP requests.
+// Each call to NewRequest() returns a fresh, instrumented requests.Builder.
+// Outbound requests automatically become child spans of the active trace.
+//
+//nolint:testableexamples // Run() blocks indefinitely, no testable output.
+func Example_httpClient() {
+	blwa.NewApp[Env](
+		func(m *blwa.Mux, h *HTTPClientHandlers) {
+			m.HandleFunc("GET /fetch", h.FetchData)
+			m.HandleFunc("POST /post", h.PostData)
+		},
+		blwa.WithFx(fx.Provide(NewHTTPClientHandlers)),
+	).Run()
+}
+
+// DirectHTTPClientHandlers demonstrates injecting *http.Client directly
+// for handlers that need lower-level control over outbound requests.
+type DirectHTTPClientHandlers struct {
+	rt     *blwa.Runtime[Env]
+	client *http.Client
+}
+
+func NewDirectHTTPClientHandlers(rt *blwa.Runtime[Env], client *http.Client) *DirectHTTPClientHandlers {
+	return &DirectHTTPClientHandlers{rt: rt, client: client}
+}
+
+// Proxy demonstrates using the injected *http.Client directly.
+func (h *DirectHTTPClientHandlers) Proxy(ctx context.Context, w bhttp.ResponseWriter, r *http.Request) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://example.com", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
+	return nil
+}
+
+// TransportHandlers demonstrates injecting http.RoundTripper for handlers
+// that need a custom *http.Client with specific settings but still want tracing.
+type TransportHandlers struct {
+	rt     *blwa.Runtime[Env]
+	client *http.Client
+}
+
+func NewTransportHandlers(rt *blwa.Runtime[Env], transport http.RoundTripper) *TransportHandlers {
+	return &TransportHandlers{
+		rt: rt,
+		client: &http.Client{
+			Transport: transport,
+			Timeout:   5 * 1e9, // 5s
+		},
+	}
+}
+
+func (h *TransportHandlers) CallAPI(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.example.com/data", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	blwa.Log(ctx).Info("upstream responded", zap.Int("status", resp.StatusCode))
+	w.WriteHeader(http.StatusOK)
+	return nil
+}

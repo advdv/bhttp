@@ -2,7 +2,9 @@ package blwa
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/carlmjohnson/requests"
 	"github.com/cockroachdb/errors"
 )
 
@@ -30,11 +32,13 @@ type Runtime[E Environment] struct {
 	env          E
 	mux          *Mux
 	secretReader SecretReader
+	transport    http.RoundTripper
 }
 
 // RuntimeParams holds optional dependencies for Runtime.
 type RuntimeParams struct {
 	SecretReader SecretReader
+	Transport    http.RoundTripper
 }
 
 // NewRuntime creates a new Runtime with the given dependencies.
@@ -43,6 +47,7 @@ func NewRuntime[E Environment](env E, mux *Mux, params RuntimeParams) *Runtime[E
 		env:          env,
 		mux:          mux,
 		secretReader: params.SecretReader,
+		transport:    params.Transport,
 	}
 }
 
@@ -78,4 +83,20 @@ func (r *Runtime[E]) Secret(ctx context.Context, secretID string, jsonPath ...st
 		return "", errors.New("blwa: secret reader not configured; use WithSecrets()")
 	}
 	return secretFromReader(ctx, r.secretReader, secretID, jsonPath...)
+}
+
+// NewRequest returns a fresh [requests.Builder] pre-configured with the
+// instrumented HTTP transport. Each call returns a new builder, so there is
+// no risk of shared mutable state between requests.
+//
+// Example:
+//
+//	var result OrderResponse
+//	err := h.rt.NewRequest().
+//	    BaseURL("https://api.example.com/v1/orders").
+//	    BodyJSON(&CreateOrderRequest{Amount: 1000}).
+//	    ToJSON(&result).
+//	    Fetch(ctx)
+func (r *Runtime[E]) NewRequest() *requests.Builder {
+	return newRequestBuilder(r.transport)
 }

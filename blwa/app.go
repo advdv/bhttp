@@ -29,6 +29,7 @@ type runtimeProviderParams[E Environment] struct {
 	Env          E
 	Mux          *Mux
 	SecretReader SecretReader
+	Transport    http.RoundTripper
 }
 
 // WithAWSClient registers an AWS SDK v2 client for dependency injection.
@@ -88,6 +89,8 @@ func FxOptions[E Environment](routing any, opts ...Option) []fx.Option {
 		fx.Provide(func(e E) (*zap.Logger, error) { return NewLogger(e) }),
 		fx.Provide(NewTracerProvider),
 		fx.Provide(NewPropagator),
+		fx.Provide(NewHTTPTransport),
+		fx.Provide(NewHTTPClient),
 		fx.Provide(provideAWSConfig),
 		fx.Provide(func(cfg aws.Config) (SecretReader, error) {
 			return NewAWSSecretReader(cfg)
@@ -95,7 +98,10 @@ func FxOptions[E Environment](routing any, opts ...Option) []fx.Option {
 		fx.Supply(cfg.ServerConfig),
 		fx.Provide(NewServer),
 		fx.Provide(func(p runtimeProviderParams[E]) *Runtime[E] {
-			return NewRuntime(p.Env, p.Mux, RuntimeParams{SecretReader: p.SecretReader})
+			return NewRuntime(p.Env, p.Mux, RuntimeParams{
+				SecretReader: p.SecretReader,
+				Transport:    p.Transport,
+			})
 		}),
 		fx.Invoke(startServerHook),
 		fx.Invoke(routing),

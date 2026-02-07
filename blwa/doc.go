@@ -206,6 +206,59 @@
 //	    return &Handlers{dynamo: dynamo, ssm: ssm, s3: s3}
 //	}
 //
+// # HTTP Client
+//
+// blwa provides an instrumented HTTP client for outbound requests. All three
+// abstraction levels are available via fx injection:
+//
+//   - [http.RoundTripper] — instrumented transport for building custom clients
+//   - [*http.Client] — ready-to-use client with tracing
+//   - [Runtime.NewRequest] — fluent API via [github.com/carlmjohnson/requests]
+//
+// # Using Runtime.NewRequest (Recommended)
+//
+// The simplest way to make outbound requests. Each call returns a fresh
+// [requests.Builder] with the instrumented transport pre-wired:
+//
+//	func (h *Handlers) FetchData(ctx context.Context, w bhttp.ResponseWriter, _ *http.Request) error {
+//	    var result DataResponse
+//	    err := h.rt.NewRequest().
+//	        BaseURL("https://api.example.com/v1/data").
+//	        ToJSON(&result).
+//	        Fetch(ctx)
+//	    if err != nil {
+//	        return err
+//	    }
+//	    // ...
+//	}
+//
+// # Injecting *http.Client
+//
+// For handlers that prefer the standard library client:
+//
+//	func NewHandlers(rt *blwa.Runtime[Env], client *http.Client) *Handlers {
+//	    return &Handlers{rt: rt, client: client}
+//	}
+//
+// # Injecting http.RoundTripper
+//
+// For handlers that need a custom client (e.g., with specific timeouts or
+// redirect policy) but still want tracing on the transport:
+//
+//	func NewHandlers(rt *blwa.Runtime[Env], transport http.RoundTripper) *Handlers {
+//	    return &Handlers{
+//	        rt: rt,
+//	        client: &http.Client{
+//	            Transport: transport,
+//	            Timeout:   5 * time.Second,
+//	        },
+//	    }
+//	}
+//
+// All three use the same TracerProvider and Propagator as the inbound server
+// tracing, so outbound requests automatically become child spans of the active
+// trace with propagated context headers.
+//
 // # Timeouts
 //
 // HTTP server timeouts are configured based on BW_LAMBDA_TIMEOUT to match the

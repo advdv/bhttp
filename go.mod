@@ -14,6 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.67.8
 	github.com/aws/aws-secretsmanager-caching-go/v2 v2.1.0
 	github.com/caarlos0/env/v11 v11.3.1
+	github.com/carlmjohnson/requests v0.25.1
 	github.com/cockroachdb/errors v1.12.0
 	github.com/samber/lo v1.48.0
 	github.com/stretchr/testify v1.11.1
