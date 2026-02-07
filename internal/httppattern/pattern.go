@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Patterns for ServeMux routing.
+// Last compared with upstream: https://github.com/golang/go/commit/17a02b910697800032aa686548992a554e8e9d82
 
 //nolint:wsl,nlreturn,lll,unused,funlen,varnamelen,gocognit,nestif,exhaustive,gocritic,staticcheck,depguard,forbidigo
 package httppattern
@@ -18,14 +19,11 @@ import (
 	"golang.org/x/net/http/httpguts"
 )
 
-// from: https://github.com/golang/go/blob/master/src/net/http/http.go#L61C1-L63C2
-func isNotToken(r rune) bool {
-	return !httpguts.IsTokenRune(r)
-}
-
 // from: https://github.com/golang/go/blob/2a5904142043e8998eaa15728150c48bcfdca7d5/src/net/http/request.go#L837
 func validMethod(method string) bool {
-	return len(method) > 0 && strings.IndexFunc(method, isNotToken) == -1
+	return len(method) > 0 && strings.IndexFunc(method, func(r rune) bool {
+		return !httpguts.IsTokenRune(r)
+	}) == -1
 }
 
 // cleanPath returns the canonical path for p, eliminating . and .. elements.
@@ -113,7 +111,7 @@ type segment struct {
 //     a literal or a wildcard of the form "{name}", "{name...}", or "{$}".
 //
 // METHOD, HOST and PATH are all optional; that is, the string can be "/".
-// If METHOD is present, it must be followed by a single space.
+// If METHOD is present, it must be followed by at least one space or tab.
 // Wildcard names must be valid Go identifiers.
 // The "{$}" and "{name...}" wildcard must occur at the end of PATH.
 // PATH may end with a '/'.
@@ -129,7 +127,10 @@ func parsePattern(s string) (_ *pattern, err error) {
 		}
 	}()
 
-	method, rest, found := strings.Cut(s, " ")
+	method, rest, found := s, "", false
+	if i := strings.IndexAny(s, " \t"); i >= 0 {
+		method, rest, found = s[:i], strings.TrimLeft(s[i+1:], " \t"), true
+	}
 	if !found {
 		rest = method
 		method = ""
@@ -426,14 +427,6 @@ func inverseRelationship(r relationship) relationship {
 	default:
 		return r
 	}
-}
-
-// isLitOrSingle reports whether the segment is a non-dollar literal or a single wildcard.
-func isLitOrSingle(seg segment) bool {
-	if seg.wild {
-		return !seg.multi
-	}
-	return seg.s != "/"
 }
 
 // describeConflict returns an explanation of why two patterns conflict.
