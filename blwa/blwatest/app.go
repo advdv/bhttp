@@ -25,5 +25,5 @@ type App struct {
 
 // New creates a test app with the same DI graph as [blwa.NewApp].
 func New[E blwa.Environment](t testing.TB, routing any, opts ...blwa.Option) *App {
-	return &App{App: fxtest.New(t, blwa.Options[E](routing, opts...)...)}
+	return &App{App: fxtest.New(t, blwa.FxOptions[E](routing, opts...)...)}
 }

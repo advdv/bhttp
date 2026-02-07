@@ -1,11 +1,7 @@
 package blwa
 
 import (
-	"context"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"go.uber.org/fx"
@@ -76,8 +72,8 @@ func WithHealthHandler(h func(http.ResponseWriter, *http.Request)) Option {
 	}
 }
 
-// Options builds the []fx.Option used by both NewApp and blwatest.New.
-func Options[E Environment](routing any, opts ...Option) []fx.Option {
+// FxOptions builds the []fx.Option used by both NewApp and blwatest.New.
+func FxOptions[E Environment](routing any, opts ...Option) []fx.Option {
 	var cfg AppConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -126,29 +122,12 @@ func Options[E Environment](routing any, opts ...Option) []fx.Option {
 //	).Run()
 func NewApp[E Environment](routing any, opts ...Option) *App {
 	return &App{
-		app: fx.New(Options[E](routing, opts...)...),
+		app: fx.New(FxOptions[E](routing, opts...)...),
 	}
 }
 
 // Run starts the application and blocks until SIGINT or SIGTERM is received,
 // then gracefully shuts down.
 func (a *App) Run() {
-	startCtx, startCancel := context.WithTimeout(context.Background(), a.app.StartTimeout())
-	if err := a.app.Start(startCtx); err != nil {
-		startCancel()
-		os.Exit(1)
-	}
-	startCancel()
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), a.app.StopTimeout())
-	err := a.app.Stop(stopCtx)
-	stopCancel()
-
-	if err != nil {
-		os.Exit(1)
-	}
+	a.app.Run()
 }
