@@ -115,10 +115,17 @@ func Span(ctx context.Context) trace.Span {
 	return trace.SpanFromContext(ctx)
 }
 
-// TestSetLWAContext injects an LWAContext into the context for testing purposes.
-// This should only be used in tests to simulate Lambda execution environment.
-func TestSetLWAContext(ctx context.Context, lc *LWAContext) context.Context {
+// WithLWAContext returns a copy of ctx with the given [LWAContext] attached.
+// This is useful for injecting a Lambda execution context in tests or custom middleware.
+func WithLWAContext(ctx context.Context, lc *LWAContext) context.Context {
 	return context.WithValue(ctx, ctxKeyLWAContext, lc)
+}
+
+// WithLogger returns a copy of ctx with the given logger attached so that
+// [Log] can retrieve it. This is useful for unit-testing handlers that call
+// [Log] without spinning up the full server middleware stack.
+func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
+	return context.WithValue(ctx, ctxKeyRequestDep, &requestDep{logger: logger})
 }
 
 // traceFields extracts trace_id and span_id from the context for log correlation.

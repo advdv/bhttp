@@ -211,7 +211,7 @@ func testLWAContextMiddleware(deadline time.Time) bhttp.Middleware {
 				RequestID: "test-request-id",
 				Deadline:  deadline.UnixMilli(),
 			}
-			ctx := blwa.TestSetLWAContext(r.Context(), lc)
+			ctx := blwa.WithLWAContext(r.Context(), lc)
 			return next.ServeBareBHTTP(w, r.WithContext(ctx))
 		})
 	}

@@ -316,6 +316,33 @@
 //	    blwa.WithEnvParser(blwa.ParseEnvWithRequiredStatusCodes[Env](500, 502, 503, 504)),
 //	)
 //
+// # Testing
+//
+// blwa provides context helpers and a companion [blwatest] package to simplify
+// unit-testing handlers without spinning up the full server and DI graph.
+//
+// [blwatest.CallHandler] invokes a [bhttp.HandlerFunc] and returns the recorded
+// response, handling the [bhttp.ResponseWriter] wrapping and buffer flushing
+// boilerplate. Combine it with [WithLogger] to unit-test handlers that call [Log]:
+//
+//	ctx := blwa.WithLogger(context.Background(), zap.NewNop())
+//	req := httptest.NewRequest(http.MethodGet, "/items", nil).WithContext(ctx)
+//	rec := blwatest.CallHandler(h.ListItems, req)
+//
+// To simulate a Lambda execution environment, use [WithLWAContext]:
+//
+//	ctx = blwa.WithLWAContext(ctx, &blwa.LWAContext{
+//	    RequestID: "test-id",
+//	    Deadline:  time.Now().Add(30 * time.Second).UnixMilli(),
+//	})
+//
+// For integration tests that need the full DI graph, use [blwatest.New]:
+//
+//	blwatest.SetBaseEnv(t, 18081)
+//	app := blwatest.New[Env](t, routing, blwa.WithAWSClient(...))
+//	app.RequireStart()
+//	t.Cleanup(app.RequireStop)
+//
 // # Health Checks
 //
 // A health endpoint is automatically registered at AWS_LWA_READINESS_CHECK_PATH
